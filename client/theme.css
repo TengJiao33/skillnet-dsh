@@ -1,0 +1,61 @@
+/* The user's original light palette stays intact. DSH owns dark-mode selection. */
+.skillnet-shell {
+  --sn-catalog-repository: #087b61;
+  --sn-catalog-star: #946200;
+  --sn-catalog-star-icon: #d49b17;
+}
+body[data-ds-dark-theme] .skillnet-shell {
+  --sn-catalog-repository: var(--dsw-alias-state-business-primary);
+  --sn-catalog-star: #f2c76d;
+  --sn-catalog-star-icon: #e9b949;
+  --sn-canvas: var(--dsw-alias-bg-base);
+  --sn-surface: var(--dsw-alias-bg-layer-1);
+  --sn-surface-muted: var(--dsw-alias-bg-module-platform);
+  --sn-hover: var(--dsw-alias-interactive-bg-hover);
+  --sn-header: color-mix(in srgb, var(--sn-surface) 92%, transparent);
+  --sn-text: var(--dsw-alias-label-primary);
+  --sn-text-secondary: var(--dsw-alias-label-secondary);
+  --sn-text-tertiary: var(--dsw-alias-label-tertiary);
+  --sn-border: var(--dsw-alias-border-l2);
+  --sn-accent: var(--dsw-alias-state-business-primary);
+  --sn-accent-bg: var(--dsw-alias-state-business-tertiary);
+  --sn-accent-soft: color-mix(in srgb, var(--sn-accent) 65%, var(--sn-surface));
+  --sn-accent-border: color-mix(in srgb, var(--sn-accent) 40%, var(--sn-border));
+  --sn-similar: var(--dsw-static-violet-400);
+  --sn-similar-bg: color-mix(in srgb, var(--sn-similar) 12%, var(--sn-surface));
+  --sn-node: var(--dsw-alias-label-tertiary);
+  --sn-edge: color-mix(in srgb, var(--sn-text-tertiary) 55%, var(--sn-surface));
+  --sn-button: var(--dsw-alias-button-primary-fill);
+  --sn-button-hover: var(--dsw-alias-button-primary-hover);
+  --sn-button-label: var(--dsw-alias-label-primary-foreground);
+  --sn-error: var(--dsw-alias-state-error-primary);
+  --sn-error-bg: color-mix(in srgb, var(--sn-error) 8%, var(--sn-surface));
+  --sn-error-border: color-mix(in srgb, var(--sn-error) 25%, var(--sn-border));
+  --sn-warning: var(--dsw-alias-state-warn-label);
+  --sn-warning-bg: color-mix(in srgb, var(--sn-warning) 10%, var(--sn-surface));
+  --sn-warning-border: color-mix(in srgb, var(--sn-warning) 30%, var(--sn-border));
+  --sn-shadow: var(--dsw-alias-bg-mask-2);
+  --sn-scrollbar: var(--dsw-alias-scrollbar-bg-l1);
+  color-scheme: inherit;
+  font-family: var(--dsw-font-family);
+}
+body[data-ds-dark-theme] .skillnet-shell .primary-button {
+  background: var(--sn-button);
+  border-color: var(--sn-button);
+  color: var(--sn-button-label);
+}
+body[data-ds-dark-theme] .skillnet-shell .primary-button:hover {
+  background: var(--sn-button-hover);
+  border-color: var(--sn-button-hover);
+}
+body[data-ds-dark-theme] .skillnet-shell .graph-svg marker path {
+  stroke: var(--sn-accent);
+}
+body[data-ds-dark-theme] .skillnet-shell input::placeholder,
+body[data-ds-dark-theme] .skillnet-shell textarea::placeholder {
+  color: var(--sn-text-tertiary);
+  opacity: 1;
+}
+body[data-ds-dark-theme] .skillnet-shell .brand img {
+  filter: brightness(1.8);
+}

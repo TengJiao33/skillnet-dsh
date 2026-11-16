@@ -1,0 +1,76 @@
+{
+  "name": "dsh-skillnet",
+  "version": "0.5.0",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TengJiao33/skillnet-dsh.git"
+  },
+  "homepage": "https://github.com/TengJiao33/skillnet-dsh#readme",
+  "bugs": {
+    "url": "https://github.com/TengJiao33/skillnet-dsh/issues"
+  },
+  "license": "MIT",
+  "description": "SkillNet discovery, personal library, analysis, routing, creation and evaluation for DeepSeek Harness.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/panel.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "src",
+    "python/worker.py",
+    "python/host_adapter.py",
+    "python/model_mode.py",
+    "python/conversation_analysis.py",
+    "python/github_download.py",
+    "locale",
+    "cordis.patch.yml",
+    "requirements.txt",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=22.19",
+    "dsh": "0.2.2-rc.1"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-theme",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-workspace",
+        "@deepseek-ai/dsh-client-ui-skill",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  },
+  "scripts": {
+    "check": "node --check src/index.js && node --check src/panel.js && node --check src/backend.js && node --check src/library.js && node --check src/native.js && node --check src/workspace.js && node --check src/analysis-conversation.js && node --check src/host-model.js && node --check src/task-store.js && node --check src/search.js",
+    "test": "node --test test/*.test.js",
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p client/tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.3",
+    "@types/react-dom": "^19.0.2",
+    "esbuild": "^0.25.5",
+    "lucide-react": "^0.468.0",
+    "postcss": "^8.5.32",
+    "postcss-prefix-selector": "^2.1.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.7.3"
+  }
+}

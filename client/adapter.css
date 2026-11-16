@@ -1,0 +1,286 @@
+.skillnet-shell{height:100%;overflow:auto;background:#f8fafb;color:#223744;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:light}
+.skillnet-shell .app-shell{min-height:100%}
+.skillnet-shell .dsh-nav{display:flex;gap:6px;align-items:center}
+.skillnet-shell .dsh-nav button{border:0;background:transparent;color:#637780;padding:9px 12px;border-radius:7px;white-space:nowrap}
+.skillnet-shell .dsh-nav button[aria-current=page]{color:#078b6b;background:#e4f4ef;font-weight:700}
+.skillnet-shell.dsh-other-page>.app-shell>main{display:none}
+.skillnet-shell.dsh-other-page>.app-shell{min-height:0}
+.skillnet-shell .dsh-page{padding-top:28px;padding-bottom:45px}
+.skillnet-shell .dsh-page h1{font-size:26px;margin:0 0 24px}
+.skillnet-shell .dsh-page h2{font-size:18px;margin:8px 0 16px}
+.skillnet-shell .dsh-page h3{font-size:15px;margin:0}
+.skillnet-shell .dsh-operations{margin:0 0 20px}
+.skillnet-shell .dsh-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.skillnet-shell .dsh-row>input{flex:1;min-width:200px}
+.skillnet-shell .dsh-row h2,.skillnet-shell .dsh-row h3{margin:0;flex:1}
+.skillnet-shell .dsh-page button:not(.primary-button),.skillnet-shell .dsh-operations button:not(.primary-button){border:1px solid #dbe7e9;background:white;border-radius:7px;padding:8px 12px;color:#294d50}
+.skillnet-shell .dsh-page button:disabled,.skillnet-shell .dsh-operations button:disabled{opacity:.5;cursor:default}
+.skillnet-shell .dsh-page input,.skillnet-shell .dsh-page select,.skillnet-shell .dsh-page textarea,.skillnet-shell .dsh-operations input{border:1px solid #d9e5e9;background:white;color:#223744;border-radius:7px;padding:9px 11px;font:inherit}
+.skillnet-shell .dsh-page form>textarea{display:block;width:100%;min-height:230px;margin:18px 0;resize:vertical}
+.skillnet-shell .dsh-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-bottom:22px}
+.skillnet-shell .dsh-card{border:1px solid #e0e9ed;background:white;border-radius:12px;padding:22px;margin-bottom:14px}
+.skillnet-shell .dsh-card label{display:grid;gap:7px;margin-top:15px;font-size:13px}
+.skillnet-shell .dsh-card input{width:100%}
+.skillnet-shell .dsh-clear{display:flex;gap:8px;align-items:center;font-size:12px}
+.skillnet-shell .dsh-clear input{width:auto}
+.skillnet-shell .dsh-checks{display:flex;gap:18px;padding:14px 0}
+.skillnet-shell .dsh-tasks details{margin-top:18px;border:1px solid #e0e9ed;border-radius:9px;background:white;padding:10px 14px}
+.skillnet-shell .dsh-tasks summary{cursor:pointer}
+.skillnet-shell .dsh-task{display:flex;gap:16px;align-items:center;padding:8px 0;border-top:1px solid #edf1f3;margin-top:8px}
+.skillnet-shell .dsh-task>span{flex:1;font-size:12px;overflow-wrap:anywhere}
+.skillnet-shell .dsh-task button span{color:#65857b;margin-left:10px}
+.skillnet-shell .dsh-result,.skillnet-shell .dsh-package{border:1px solid #b8dcd0;border-radius:12px;padding:22px;background:white;margin-top:18px}
+.skillnet-shell pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 Consolas,monospace;background:#f4f8f9;padding:16px;border-radius:8px;max-height:420px;overflow:auto}
+.skillnet-shell .dsh-route-result{display:flex;width:100%;text-align:left;gap:16px;margin-top:10px}
+.skillnet-shell .dsh-route-result strong{min-width:140px}
+.skillnet-shell .dsh-search{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}
+.skillnet-shell .dsh-search>input{flex:1;min-width:200px}
+.skillnet-shell .dsh-filters{width:100%;display:flex;gap:16px;flex-wrap:wrap}
+.skillnet-shell .dsh-filters label{display:flex;align-items:center;gap:8px;font-size:12px}
+.skillnet-shell .dsh-filters input{max-width:160px}
+.skillnet-shell .dsh-catalog{margin-top:20px}
+.skillnet-shell .dsh-discover-page{container-type:inline-size}
+.skillnet-shell .dsh-discover-page .dsh-catalog{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.skillnet-shell .dsh-catalog .dsh-card{display:flex;flex-direction:column;min-width:0;margin:0;padding:20px}
+.skillnet-shell .dsh-catalog .dsh-card h2{margin:0;font-size:18px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+.skillnet-shell .dsh-catalog-card-heading{display:flex;align-items:baseline;gap:12px;justify-content:space-between}
+.skillnet-shell .dsh-catalog .dsh-card>p.dsh-catalog-description{min-height:67px;margin:12px 0 16px;color:#355266;font-size:14px;font-weight:400;line-height:1.6}
+.skillnet-shell .dsh-catalog-meta{display:flex;justify-content:space-between;gap:12px;color:#5b6f7d;font-size:12px;line-height:18px}
+.skillnet-shell .dsh-catalog-meta>:is(a,span){display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
+.skillnet-shell .dsh-catalog-meta svg{flex:none}
+.skillnet-shell .dsh-catalog-meta .dsh-catalog-repository{min-width:0;color:var(--sn-catalog-repository)}
+.skillnet-shell .dsh-catalog-repository>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.skillnet-shell a.dsh-catalog-repository:hover>span{text-decoration:underline;text-underline-offset:3px}
+.skillnet-shell .dsh-catalog-meta .dsh-catalog-stars{flex:none;color:var(--sn-catalog-star)}
+.skillnet-shell .dsh-catalog-stars>svg{color:var(--sn-catalog-star-icon)}
+.skillnet-shell .dsh-search-feedback{display:flex;align-items:flex-start;gap:8px;margin:0 0 16px;padding:10px 12px;border:1px solid #ead7a4;border-radius:8px;background:#fff9e9;color:#765c18;font-size:13px;line-height:1.6}
+.skillnet-shell .dsh-search-feedback>svg{flex:none;margin-top:2px}
+.skillnet-shell .dsh-catalog-footer{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:16px;padding-top:12px;border-top:1px solid #edf1f3}
+.skillnet-shell .dsh-catalog-assessment{flex:1;min-width:0}
+.skillnet-shell .dsh-catalog .dsh-card .dsh-catalog-assessment{margin:0}
+.skillnet-shell .dsh-catalog-actions{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto}
+.skillnet-shell .dsh-catalog .dsh-card .dsh-catalog-actions>button{flex:none;min-height:32px;padding:4px 10px;font-size:13px;line-height:22px}
+.skillnet-shell .dsh-catalog .dsh-card .dsh-catalog-actions>.dsh-catalog-download{border-color:#95cdbd;background:#e4f4ef;color:#067a5f}
+.skillnet-shell .dsh-catalog .dsh-card .dsh-catalog-assessment-source{margin:8px 0 0;color:#5b6f7d;font-size:12px}
+.skillnet-shell .dsh-catalog-assessment .dsh-evaluation{gap:6px 12px;margin:8px 0 0}
+.skillnet-shell .dsh-catalog-heading h2{margin:0;flex:1}
+.skillnet-shell .dsh-catalog-heading>span{font-size:13px;color:#5b6f7d}
+.skillnet-shell .dsh-catalog-placeholder{gap:16px;min-height:225px}
+.skillnet-shell .dsh-catalog-placeholder>span{height:16px;background:#e3ebef;border-radius:4px}
+.skillnet-shell .dsh-catalog-placeholder>span:first-child{width:55%;height:20px}
+.skillnet-shell .dsh-catalog-placeholder>span:nth-child(2){height:66px}
+@container(max-width:900px){.skillnet-shell .dsh-discover-page .dsh-catalog{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container(max-width:560px){.skillnet-shell .dsh-discover-page .dsh-catalog{grid-template-columns:1fr}}
+.skillnet-shell .dsh-evaluation{display:flex;gap:12px;margin:10px 0;font-size:12px;flex-wrap:wrap;color:#6a7e84}
+.skillnet-shell .dsh-path{font-family:Consolas,monospace;font-size:12px;overflow-wrap:anywhere}
+.skillnet-shell .dsh-evaluation-report{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:20px}
+.skillnet-shell .dsh-evaluation-report section{padding:14px;background:#f4f8f7;border-radius:9px}
+.skillnet-shell .dsh-evaluation-report h3 span{color:#078b6b;float:right}
+.skillnet-shell .dsh-package details button{margin:6px}
+.skillnet-shell .dsh-native-list>div{display:flex;gap:20px;padding:12px;border-bottom:1px solid #e5ecef}
+.skillnet-shell .dsh-native-list strong{min-width:160px}
+@media(max-width:1000px){.skillnet-shell .dsh-settings-grid{grid-template-columns:1fr}.skillnet-shell .site-header-inner{gap:8px;padding:0 16px}.skillnet-shell .header-link{display:none}.skillnet-shell .dsh-nav{gap:0}.skillnet-shell .dsh-nav button{padding:8px}}
+.skillnet-shell .dsh-operations{display:grid;gap:12px;padding:0 16px 14px;margin-bottom:18px;min-width:0;border:1px solid #e3ebef;border-top:0;border-radius:0 0 12px 12px;background:#fff}
+.skillnet-shell .dsh-model-choice{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
+.skillnet-shell .dsh-model-label{flex:1 1 360px;min-width:0;gap:12px}
+.skillnet-shell .dsh-model-label>span{flex:none}
+.skillnet-shell .dsh-model-label select{flex:1;width:100%;min-width:0;max-width:none}
+.skillnet-shell .dsh-model-choice>button{flex:none;white-space:nowrap}
+.skillnet-shell .dsh-model-choice>[role=alert]{flex-basis:100%}
+.skillnet-shell .dsh-page>.dsh-model-choice{margin-bottom:18px}
+.skillnet-shell .compact-workbench .dataset-actions{display:none}
+.skillnet-shell .dsh-connected-controls .dataset-bar{border-bottom:1px solid #e3ebef;border-radius:12px;margin-bottom:18px;gap:12px}
+.skillnet-shell .compact-workbench .workbench-heading{display:none}
+.skillnet-shell .dsh-taskbar{display:grid;grid-template-columns:minmax(0,1fr) repeat(4,max-content);align-items:center;gap:8px;min-width:0}
+.skillnet-shell .dsh-route-query{display:flex;align-items:center;gap:12px;min-width:0;color:#223744;font-size:14px;font-weight:500}
+.skillnet-shell .dsh-route-query>span{flex:none;white-space:nowrap}
+.skillnet-shell .dsh-route-query>input{flex:1;width:100%;min-width:0;height:44px;margin:0;padding:0 12px;font-size:15px;font-weight:400}
+.skillnet-shell .dsh-taskbar>.primary-button{box-sizing:border-box;height:40px;min-height:40px;margin:0;padding:0 18px;justify-content:center;white-space:nowrap}
+.skillnet-shell .dsh-workbench-tools{position:relative}
+.skillnet-shell .dsh-workbench-tools>summary{display:flex;align-items:center;justify-content:center;list-style:none;cursor:pointer;height:40px;padding:0 12px;border:1px solid #dce6e9;border-radius:7px;background:#fff;color:#5b6f7d;font-size:12px;white-space:nowrap}
+.skillnet-shell .dsh-workbench-tools>summary::-webkit-details-marker{display:none}
+.skillnet-shell .dsh-tools-body{position:absolute;right:0;top:calc(100% + 8px);z-index:30;width:min(600px,calc(100vw - 80px));padding:18px;border:1px solid #dce6e9;border-radius:10px;background:#fff;box-shadow:0 12px 30px rgba(16,48,69,.14)}
+.skillnet-shell .dsh-tools-body>.dsh-row{margin-top:16px}
+.skillnet-shell .dsh-tools-body>.collection-control{margin-top:16px;gap:12px}
+.skillnet-shell .dsh-tools-body>p{margin:12px 0 0;font-size:14px;line-height:1.6}
+.skillnet-shell .dataset-bar>.dsh-workbench-tools{margin-left:auto}
+.skillnet-shell .dataset-bar .dsh-tools-body{width:min(600px,calc(100vw - 48px))}
+.skillnet-shell .dsh-matchbar{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:center;gap:8px;margin:0}
+.skillnet-shell :is(.dsh-workbench-action,.dsh-context-result button:not(.dsh-route-result),.dsh-use-dialog button:not(.sn-select)){display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:44px;padding:8px 16px;border:1px solid #dce6e9;border-radius:8px;background:#fff;color:#355266;font:500 14px/24px var(--sn-ui-font);white-space:nowrap}
+.skillnet-shell .dsh-workbench-action:hover:not(:disabled){background:#f0f8f5;border-color:#95cdbd}
+.skillnet-shell .dsh-workbench-action:focus-visible{outline:2px solid #078b6b;outline-offset:2px}
+.skillnet-shell button.dsh-workbench-action.dsh-graph-action{gap:8px;background:#e4f4ef;border-color:#95cdbd;color:#067a5f;font-weight:600}
+.skillnet-shell button.dsh-workbench-action.dsh-graph-action:hover:not(:disabled){background:#c9eee4;border-color:#68bfa7}
+.skillnet-shell .dsh-graph-action:disabled{opacity:.5;cursor:default}
+.skillnet-shell .dsh-graph-action>svg{flex:none}
+.skillnet-shell .dsh-context-result:empty{display:none}
+.skillnet-shell .graph-panel-title{height:auto;min-height:72px;flex-wrap:wrap;gap:12px}
+.skillnet-shell .graph-panel-title>.dsh-workbench-action{margin-left:auto}
+.skillnet-shell .graph-panel>.dsh-context-result{flex:none;max-height:240px;overflow:auto;padding:0 16px}
+.skillnet-shell .inspector-content h2.skill-detail-name{font-size:24px;font-weight:700;line-height:1.35;letter-spacing:-.01em;margin-bottom:12px}
+.skillnet-shell .skill-detail-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.skillnet-shell .skill-detail-heading h2.skill-detail-name{flex:1;min-width:0;overflow-wrap:anywhere;margin:0}
+.skillnet-shell .skill-detail-heading .dsh-skill-actions{flex:none;margin:0}
+.skillnet-shell .inspector-content .skill-section-label{display:flex;width:fit-content;max-width:100%;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0;padding:4px 10px;background:var(--sn-profile-tint);border:0;border-radius:5px}
+.skillnet-shell .inspector-content .profile-source-label{margin:24px 0 18px}
+.skillnet-shell .profile-groups{padding-left:15px}
+.skillnet-shell .profile-groups .profile-group{margin-bottom:20px}
+.skillnet-shell .profile-group h4{margin:0 0 8px}
+.skillnet-shell .dsh-skill-actions{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0 0}
+.skillnet-shell .dsh-skill-actions>button.dsh-workbench-action{flex:none;min-height:36px;gap:7px;padding:6px 8px;border:0;border-radius:4px;background:transparent;font-size:14px;font-weight:600;line-height:24px}
+.skillnet-shell .dsh-skill-actions>button>svg{flex:none;color:inherit}
+.skillnet-shell .dsh-skill-actions>button.dsh-workbench-action:hover:not(:disabled){background:#f7f9fa}
+.skillnet-shell .skill-quality-section button.quality-action{gap:6px;min-height:30px;padding:4px 8px;border:0;background:transparent;color:var(--sn-readable-copy);font-size:14px;font-weight:500;line-height:22px}
+.skillnet-shell .skill-quality-section .quality-action:hover:not(:disabled){background:var(--sn-profile-tint)}
+.skillnet-shell .dsh-context-result .dsh-result{margin:12px 0;padding:16px}
+.skillnet-shell .dsh-context-result .dsh-result h3{font-size:16px;line-height:1.5}
+.skillnet-shell .dsh-context-result .dsh-result p{font-size:14px;line-height:1.7;overflow-wrap:anywhere}
+.skillnet-shell .dsh-context-result .dsh-task{flex-wrap:wrap;font-size:14px}
+.skillnet-shell .dsh-context-result .dsh-task>span{font-size:14px}
+.skillnet-shell .dsh-route-context .dsh-result{max-height:min(340px,35dvh);overflow:auto}
+.skillnet-shell .dsh-evaluation-report h3{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.skillnet-shell .dsh-use-dialog{position:fixed;inset:0;margin:auto;width:min(600px,calc(100vw - 32px));max-height:calc(100dvh - 48px);padding:24px;border:1px solid #dce6e9;border-radius:12px;background:#fff;color:#223744;box-shadow:0 24px 60px rgba(15,48,62,.2);font:400 14px/1.7 var(--sn-ui-font)}
+.skillnet-shell .dsh-use-dialog::backdrop{background:rgba(15,48,62,.35)}
+.skillnet-shell .dsh-use-dialog form{display:grid;gap:16px}
+.skillnet-shell .dsh-use-dialog h2{margin:0;font-size:20px;line-height:1.4}
+.skillnet-shell .dsh-use-dialog p{margin:0;overflow-wrap:anywhere}
+.skillnet-shell .dsh-use-dialog button{min-height:44px;padding:8px 16px;font:500 14px/24px var(--sn-ui-font)}
+.skillnet-shell :is(.dsh-destination,.dsh-use-task){display:grid;gap:8px}
+.skillnet-shell .dsh-destination-row{display:grid;grid-template-columns:minmax(0,1fr) max-content;gap:12px;align-items:end}
+.skillnet-shell .dsh-destination>.sn-select{width:100%}
+.skillnet-shell .dsh-use-task>textarea{width:100%;min-height:88px;resize:vertical;padding:12px;border:1px solid #dce6e9;border-radius:8px;font:400 14px/1.7 var(--sn-ui-font)}
+.skillnet-shell .dsh-use-dialog h3.dsh-use-skills{margin:0;font-size:24px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
+.skillnet-shell .dsh-use-dialog footer{justify-content:flex-end}
+.skillnet-shell .dsh-package-dialog{width:min(960px,calc(100vw - 48px));max-height:calc(100dvh - 48px);padding:20px;overflow:hidden}
+.skillnet-shell .dsh-package-dialog[open]{display:flex;flex-direction:column;gap:16px}
+.skillnet-shell .dsh-package-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex:none}
+.skillnet-shell .dsh-package-dialog-header>div{min-width:0}
+.skillnet-shell .dsh-package-dialog-header p{margin:0 0 4px;color:#5b6f7d;font-size:12px}
+.skillnet-shell .dsh-package-dialog-header h2{font-size:20px;font-weight:600;overflow-wrap:anywhere}
+.skillnet-shell dialog.dsh-package-dialog .dsh-package-dialog-header>button{flex:none;min-height:32px;padding:4px 10px;font-size:13px;line-height:22px}
+.skillnet-shell .dsh-package-dialog-body{min-height:0;overflow:auto;overscroll-behavior:contain}
+.skillnet-shell .dsh-package-dialog .dsh-package{margin:0;padding:0;border:0;border-radius:0;background:transparent}
+.skillnet-shell .dsh-package-dialog .dsh-package>pre{max-height:none;overflow:visible;font-size:13px}
+.skillnet-shell .dsh-package-dialog .dsh-package>a{display:inline-block;margin-left:12px;color:#087b61}
+.skillnet-shell .dsh-package-install{margin:16px 0;padding:12px;border:1px solid #e3ebef;border-radius:8px;background:#f4f8f7}
+.skillnet-shell .dsh-package-install>p{margin-bottom:12px}
+.skillnet-shell .dsh-graph-dialog{width:min(420px,calc(100vw - 32px));padding:20px}
+.skillnet-shell .dsh-graph-confirm{display:grid;gap:12px}
+.skillnet-shell .dsh-graph-dialog h2{font-size:18px}
+.skillnet-shell .dsh-graph-dialog .dsh-row{gap:8px}
+.skillnet-shell .dsh-graph-dialog .dsh-row>button{min-height:36px;padding:6px 12px;line-height:22px}
+.skillnet-shell .dsh-graph-summary{display:grid;gap:8px;margin:0;padding:12px;background:#f4f8f7;border-radius:8px}
+.skillnet-shell .dsh-graph-summary>div{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px}
+.skillnet-shell .dsh-graph-summary dt,.skillnet-shell .dsh-graph-note{color:#5b6f7d}
+.skillnet-shell .dsh-graph-summary dd{margin:0;overflow-wrap:anywhere}
+.skillnet-shell .compact-workbench .collection-control select{height:40px}
+.skillnet-shell .compact-workbench .local-library-menu>summary{display:flex;align-items:center;min-height:40px;padding:0 12px}
+.skillnet-shell .dsh-workbench-tools>summary:focus-visible{outline:2px solid #168e72;outline-offset:2px}
+.skillnet-shell .dsh-search-options{width:100%}
+.skillnet-shell :is(.dsh-search-options,.dsh-catalog-assessment)>summary{display:flex;align-items:center;gap:6px;width:max-content;list-style:none;cursor:pointer;color:#5b6f7d;font-size:13px;font-weight:500;line-height:20px}
+.skillnet-shell :is(.dsh-search-options,.dsh-catalog-assessment)>summary::-webkit-details-marker{display:none}
+.skillnet-shell :is(.dsh-search-options,.dsh-catalog-assessment)>summary>svg:last-child{transition:transform 120ms}
+.skillnet-shell :is(.dsh-search-options,.dsh-catalog-assessment)[open]>summary>svg:last-child{transform:rotate(180deg)}
+.skillnet-shell .dsh-search-options>summary{min-height:28px;padding:3px 6px;border-radius:5px}
+.skillnet-shell .dsh-search-options>summary:hover{background:#e4f4ef;color:#067a5f}
+.skillnet-shell .dsh-catalog-assessment>summary{min-height:32px;font-size:12px}
+.skillnet-shell .dsh-search-options .dsh-filters{gap:12px;align-items:end;margin-top:10px;padding:12px;border:1px solid #e3ebef;border-radius:8px;background:#f4f8f7}
+.skillnet-shell .dsh-search-options .dsh-filters label{display:grid;gap:5px;width:120px;color:#5b6f7d;font-size:12px;font-weight:500}
+.skillnet-shell .dsh-search-options .dsh-filters .dsh-filter-mode{width:132px}
+.skillnet-shell .dsh-search-options .dsh-filters .dsh-filter-number{width:88px}
+.skillnet-shell .dsh-discover-page .dsh-search-options .dsh-filters input,.skillnet-shell .dsh-discover-page .dsh-search-options .dsh-filters button.sn-select{width:100%;min-width:0;height:32px;min-height:32px;padding:4px 8px;font-size:13px;line-height:22px}
+.skillnet-shell .dsh-search-options>summary,.skillnet-shell .dsh-create-options>summary,.skillnet-shell .dsh-catalog details>summary{width:max-content;cursor:pointer;color:#5b6f7d;font-size:12px}
+.skillnet-shell .dsh-search-options .dsh-filters{margin-top:12px}
+.skillnet-shell .dsh-create-options{margin-bottom:18px}
+.skillnet-shell .dsh-create-options[open]>.dsh-model-choice{margin-top:12px}
+.skillnet-shell .dsh-catalog details{margin:12px 0}
+.skillnet-shell .dsh-catalog article>p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.skillnet-shell .dsh-operations { container-type: inline-size; }
+.skillnet-shell .dsh-tools-body { width: min(600px, 100cqi); }
+@container (max-width: 700px) {
+  .skillnet-shell .dsh-taskbar { grid-template-columns: repeat(3, max-content) minmax(0, 1fr); }
+  .skillnet-shell .dsh-route-query { grid-column: 1 / -1; }
+  .skillnet-shell .dsh-workbench-tools { justify-self: end; }
+}
+@container (max-width: 420px) {
+  .skillnet-shell .dsh-taskbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .skillnet-shell .dsh-workbench-tools { width: 100%; }
+}
+/* Compact skill navigation; descriptions and paths remain in the inspector. */
+.skillnet-shell .skill-list { padding: 8px 12px; }
+.skillnet-shell .skill-list .skill-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  height: 48px;
+  min-height: 48px;
+  padding: 10px 12px;
+  margin: 0 0 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+}
+.skillnet-shell .skill-list .skill-row:last-child { margin-bottom: 0; }
+.skillnet-shell .skill-list .skill-row:hover { background: #f0f8f5; }
+.skillnet-shell .skill-list .skill-row.is-active { background: #e4f4ef; }
+.skillnet-shell .skill-list .skill-row.is-active::before { content: none; }
+.skillnet-shell .skill-list .skill-row:focus-visible { outline: 2px solid #078b6b; outline-offset: 2px; }
+.skillnet-shell .skill-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 24px;
+  text-transform: none;
+}
+.skillnet-shell .skill-row.is-active .skill-row-name { font-weight: 600; }
+.skillnet-shell .skill-row-count {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 6px;
+  color: #355266;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.skillnet-shell .skill-row.is-active .skill-row-count { color: #078b6b; }
+.skillnet-shell .skill-row .skill-row-count svg { color: inherit; }
+.skillnet-shell .source-heading-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.skillnet-shell :is(.source-expand, .source-dialog-close) { display: inline-flex; align-items: center; justify-content: center; flex: none; border: 1px solid #dce6e9; border-radius: 6px; background: #fff; color: #355266; padding: 0; }
+.skillnet-shell .source-expand { width: 28px; height: 28px; }
+.skillnet-shell :is(.source-expand, .source-dialog-close):hover { background: #f0f8f5; border-color: #95cdbd; }
+.skillnet-shell .source-dialog { position: fixed; inset: 0; width: min(1224px, calc((100vw - 48px) * 0.85)); height: calc(100dvh - 48px); max-width: none; max-height: none; margin: auto; padding: 24px; border: 1px solid #dce6e9; border-radius: 12px; background: #fff; color: #223744; box-shadow: 0 24px 60px rgba(15,48,62,.2); }
+.skillnet-shell .source-dialog[open] { display: flex; flex-direction: column; gap: 20px; }
+.skillnet-shell .source-dialog::backdrop { background: rgba(15,48,62,.35); }
+.skillnet-shell .source-dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex: none; }
+.skillnet-shell .source-dialog-heading { min-width: 0; }
+.skillnet-shell .source-dialog .source-dialog-heading h2 { margin: 0 0 6px; font-size: 20px; font-weight: 600; line-height: 1.4; color: inherit; letter-spacing: normal; overflow-wrap: anywhere; }
+.skillnet-shell .source-dialog-heading>span { color: #355266; font-size: 14px; }
+.skillnet-shell .source-dialog-close { width: 36px; height: 36px; }
+.skillnet-shell .source-dialog>.source-frame { flex: 1; min-height: 0; max-height: none; margin: 0; padding: 16px; overscroll-behavior: contain; }
+.skillnet-shell .source-dialog .source-line { align-items: flex-start; white-space: normal; }
+.skillnet-shell .source-dialog .source-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .skillnet-shell .source-dialog { width: calc(100vw - 24px); height: calc(100dvh - 24px); padding: 16px; }
+}
+/* Fill the desktop host panel; each column keeps its own scrolling area. */
+@media (min-width: 1161px) {
+  .skillnet-shell:not(.dsh-other-page)>.compact-workbench { display: flex; flex-direction: column; height: 100%; }
+  .skillnet-shell .compact-workbench>.site-header { flex: none; }
+  .skillnet-shell:not(.dsh-other-page)>.compact-workbench>main { display: flex; flex-direction: column; flex: 1; min-height: 0; width: 100%; margin: 0 auto; padding-bottom: 20px; }
+  .skillnet-shell .compact-workbench .dataset-controls,
+  .skillnet-shell .compact-workbench .dsh-operations { flex: none; }
+  .skillnet-shell .compact-workbench .workspace { flex: 1; }
+  .skillnet-shell .compact-workbench :is(.skill-panel, .detail-panel) { display: flex; flex-direction: column; min-height: 0; }
+  .skillnet-shell .compact-workbench :is(.panel-title, .search-box, .list-caption) { flex: none; }
+  .skillnet-shell .compact-workbench :is(.skill-list, .inspector-content) { flex: 1 1 0; min-height: 0; max-height: none; }
+  .skillnet-shell .compact-workbench :is(.graph-panel, .graph-canvas, .graph-empty) { min-height: 0; }
+  .skillnet-shell .compact-workbench .graph-svg { height: 100%; }
+}

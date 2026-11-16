@@ -1,0 +1,20 @@
+.venv/
+.dev/
+__pycache__/
+*.tgz
+node_modules/
+.local/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+
+# Keep the build's upstream logo; local design drafts are not release sources.
+design/*
+!design/20261111/
+design/20261111/*
+!design/20261111/assets/
+design/20261111/assets/*
+!design/20261111/assets/skillnet-logo.png

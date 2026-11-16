@@ -1,0 +1,113 @@
+/* Noto Sans SC is installed on the development machine; keep CJK-safe fallbacks. */
+.skillnet-shell {
+  --sn-ui-font: 'Noto Sans SC', 'Noto Sans CJK SC', 'Source Han Sans CN', 'Microsoft YaHei UI', sans-serif;
+  --sn-readable-label: #223744;
+  --sn-readable-copy: #355266;
+  --sn-profile-title: #146d5f;
+  --sn-profile-tint: #edf7f3;
+  --sn-type-page: 28px;
+  --sn-type-panel: 18px;
+  --sn-type-skill: 16px;
+  --sn-type-body: 14px;
+  --sn-type-meta: 13px;
+  font-family: var(--sn-ui-font);
+  font-size: var(--sn-type-body);
+  font-weight: 400;
+  line-height: 1.6;
+}
+body[data-ds-dark-theme] .skillnet-shell {
+  --sn-readable-label: var(--dsw-alias-label-primary);
+  --sn-readable-copy: var(--dsw-alias-label-secondary);
+  --sn-profile-title: var(--sn-accent);
+  --sn-profile-tint: var(--sn-accent-bg);
+  font-family: var(--sn-ui-font);
+}
+.skillnet-shell :is(button, input, select, textarea, summary, svg text) {
+  font-family: var(--sn-ui-font);
+}
+.skillnet-shell :is(button, select, summary) { font-weight: 500; }
+.skillnet-shell :is(input, textarea) { font-size: var(--sn-type-body); font-weight: 400; }
+.skillnet-shell :is(input, textarea)::placeholder {
+  color: var(--sn-readable-copy);
+  font-family: var(--sn-ui-font);
+  font-weight: 400;
+  opacity: 1;
+}
+body[data-ds-dark-theme] .skillnet-shell :is(input, textarea)::placeholder {
+  color: var(--sn-readable-copy);
+  font-weight: 400;
+  opacity: 1;
+}
+.skillnet-shell :is(.collection-control, .dsh-model-label, .local-library-menu, .dsh-filters label) {
+  color: var(--sn-readable-label);
+  font-size: var(--sn-type-body);
+  font-weight: 500;
+}
+.skillnet-shell :is(.collection-control select, .dsh-page select) { font-size: var(--sn-type-body); font-weight: 500; }
+.skillnet-shell :is(.dsh-nav button, .dsh-page button, .dsh-operations button, .dsh-workbench-tools>summary, .local-library-menu>summary) {
+  font-size: var(--sn-type-body);
+  line-height: 22px;
+}
+.skillnet-shell :is(.dsh-route-query>input, .dsh-taskbar>.primary-button, .dsh-workbench-tools>summary, .compact-workbench .collection-control select) {
+  box-sizing: border-box;
+  height: 44px;
+  min-height: 44px;
+  line-height: 24px;
+}
+.skillnet-shell .dsh-route-query>input { font-size: 15px; }
+.skillnet-shell .primary-button { font-weight: 600; }
+.skillnet-shell .dsh-nav button { font-weight: 500; }
+.skillnet-shell .dsh-nav button[aria-current=page] { font-weight: 600; }
+.skillnet-shell :is(.dsh-page input:not([type=checkbox]), .dsh-page select, .dsh-model-label select, .dsh-page button, .dsh-operations button) {
+  min-height: 44px;
+}
+.skillnet-shell .dsh-nav button { min-height: 44px; }
+.skillnet-shell .compact-workbench .local-library-menu>summary { min-height: 44px; }
+.skillnet-shell .panel-title { height: auto; min-height: 72px; }
+.skillnet-shell .panel-title strong { font-size: var(--sn-type-panel); font-weight: 600; line-height: 1.4; }
+.skillnet-shell .dsh-page h1 { font-size: var(--sn-type-page); font-weight: 700; }
+.skillnet-shell .inspector-content h2 { font-size: 20px; font-weight: 700; line-height: 1.35; }
+.skillnet-shell :is(.skill-row-top strong, .dsh-card h3) {
+  font-size: var(--sn-type-skill);
+  font-weight: 600;
+  line-height: 1.45;
+}
+.skillnet-shell :is(.capability-card p, .skill-row-description, .profile-item, .inspector-section p, .related-list button, .search-box input) {
+  color: var(--sn-readable-label);
+  font-size: var(--sn-type-body);
+  font-weight: 400;
+  line-height: 1.6;
+}
+.skillnet-shell :is(.inspector-section h3, .relation-row-path strong) {
+  font-size: var(--sn-type-body);
+  font-weight: 500;
+}
+.skillnet-shell :is(.skill-row-bottom, .list-caption, .skill-path, .field-label, .graph-subtitle, .graph-footer, .section-index, .profile-source-label, .relation-provenance>span, .related-list small, .relation-row-detail, .evidence-link, .profile-item button) {
+  color: var(--sn-readable-copy);
+  font-size: var(--sn-type-meta);
+  font-weight: 400;
+  line-height: 1.6;
+}
+.skillnet-shell :is(.field-label, .section-index, .profile-source-label) { font-weight: 500; }
+.skillnet-shell .inspector-content .skill-section-label { color: var(--sn-profile-title); font-size: 16px; font-weight: 600; line-height: 1.4; }
+.skillnet-shell .profile-group h4 { color: var(--sn-readable-copy); font-size: 14px; font-weight: 600; line-height: 1.5; }
+.skillnet-shell .profile-source-label .profile-stale { color: var(--sn-readable-copy); font-size: 13px; font-weight: 500; }
+.skillnet-shell .inspector-content .skill-path { font-size: 12px; line-height: 1.5; }
+.skillnet-shell :is(.profile-item button, .evidence-link) {
+  font-size: 11px;
+  line-height: 16px;
+}
+.skillnet-shell :is(.condition-list span, .relation-badge, .count-pill, .section-heading span, .dsh-evaluation, .dsh-checks, .dsh-task>span) {
+  font-size: var(--sn-type-meta);
+  font-weight: 500;
+}
+.skillnet-shell :is(.search-box svg, .skill-path svg, .related-list svg, .skill-row svg) { color: var(--sn-readable-copy); }
+.skillnet-shell :is(.graph-tools button, .graph-relation-control select) { font-size: var(--sn-type-body); font-weight: 500; }
+.skillnet-shell .graph-relation-control { font-size: var(--sn-type-meta); font-weight: 400; }
+/* SVG scales labels with the graph: keep their optical size independent of body text. */
+.skillnet-shell .node-label { font-size: 15px; font-weight: 500; }
+.skillnet-shell .graph-node.is-active .node-label { font-weight: 600; }
+.skillnet-shell .graph-empty strong { color: var(--sn-readable-label); font-size: 16px; font-weight: 600; }
+.skillnet-shell .graph-empty span { color: var(--sn-readable-copy); font-size: var(--sn-type-body); line-height: 1.7; }
+.skillnet-shell .source-frame { font-size: 14px; font-weight: 400; }
+.skillnet-shell .source-dialog>.source-frame { font-size: 15px; line-height: 1.8; }

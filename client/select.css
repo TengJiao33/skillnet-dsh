@@ -1,0 +1,99 @@
+/* Shared popup palette: original SkillNet light theme, DSH dark theme. */
+.skillnet-shell {
+  --sn-select-surface: #fff;
+  --sn-select-text: #223744;
+  --sn-select-border: #dce6e9;
+  --sn-select-muted: #536d7c;
+  --sn-select-hover: #f0f6f5;
+  --sn-select-selected: #e4f4ef;
+  --sn-select-accent: #078b6b;
+  --sn-select-shadow: 0 8px 28px #193e5217, 0 2px 6px #193e520a;
+}
+body[data-ds-dark-theme] .skillnet-shell {
+  --sn-select-surface: var(--dsw-alias-bg-layer-2);
+  --sn-select-text: var(--dsw-alias-label-primary);
+  --sn-select-border: var(--dsw-alias-border-l2);
+  --sn-select-muted: var(--dsw-alias-label-secondary);
+  --sn-select-hover: var(--dsw-alias-interactive-bg-hover);
+  --sn-select-selected: var(--dsw-alias-state-business-tertiary);
+  --sn-select-accent: var(--dsw-alias-state-business-primary);
+  --sn-select-shadow: 0 8px 28px #0005, 0 2px 6px #0003;
+}
+.skillnet-shell button.sn-select[role=combobox] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-sizing: border-box;
+  min-width: 140px;
+  max-width: 100%;
+  height: var(--sn-control-height);
+  min-height: var(--sn-control-height);
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--sn-select-border);
+  border-radius: var(--sn-control-radius);
+  background: var(--sn-select-surface);
+  color: var(--sn-select-text);
+  font: 500 14px/24px var(--sn-ui-font);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+.skillnet-shell .sn-select-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skillnet-shell .sn-select>svg { flex: none; color: var(--sn-select-muted); transition: transform 120ms; }
+.skillnet-shell .sn-select[aria-expanded=true]>svg { transform: rotate(180deg); }
+.skillnet-shell button.sn-select:hover:not(:disabled) { border-color: var(--sn-select-accent); }
+.skillnet-shell button.sn-select[aria-expanded=true],
+.skillnet-shell button.sn-select:focus-visible { outline: 2px solid var(--sn-select-accent); outline-offset: 2px; }
+.skillnet-shell button.sn-select:disabled { opacity: .5; cursor: default; }
+.skillnet-shell .collection-control>button.sn-select { min-width: 180px; max-width: 280px; }
+.skillnet-shell .dsh-model-label>button.sn-select { flex: 1; width: 100%; min-width: 0; max-width: none; }
+.skillnet-shell button.sn-select.sn-select-compact { min-width: 88px; height: 32px; min-height: 32px; padding: 4px 10px; }
+.skillnet-shell.sn-select-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  background: transparent;
+  pointer-events: none;
+}
+.skillnet-shell .sn-select-menu {
+  position: absolute;
+  box-sizing: border-box;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  border: 1px solid var(--sn-select-border);
+  border-radius: 12px;
+  background: var(--sn-select-surface);
+  box-shadow: var(--sn-select-shadow);
+  color: var(--sn-select-text);
+  pointer-events: auto;
+  scrollbar-width: thin;
+}
+.skillnet-shell .sn-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 24px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.skillnet-shell .sn-select-option>svg { flex: none; color: var(--sn-select-accent); }
+.skillnet-shell .sn-select-option.is-active { background: var(--sn-select-hover); }
+.skillnet-shell .sn-select-option[aria-selected=true] { background: var(--sn-select-selected); font-weight: 500; }
+.skillnet-shell .sn-select-option.is-active[aria-selected=true] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sn-select-accent) 24%, transparent); }
+.skillnet-shell .sn-select-option[aria-disabled=true] { opacity: .5; cursor: default; }
+.skillnet-shell .sn-select-group { padding: 10px 12px 5px; color: var(--sn-select-muted); font-size: 13px; font-weight: 500; }
+@media (prefers-reduced-motion: reduce) {
+  .skillnet-shell button.sn-select, .skillnet-shell .sn-select>svg { transition: none; }
+}

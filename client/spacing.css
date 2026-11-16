@@ -1,0 +1,121 @@
+/* Fluent's 4px ramp: component insets are distinct from gaps between components.
+   https://fluent2.microsoft.design/layout
+   https://learn.microsoft.com/en-us/windows/apps/design/basics/content-basics */
+.skillnet-shell {
+  --sn-space-1: 4px;
+  --sn-space-2: 8px;
+  --sn-space-3: 12px;
+  --sn-space-4: 16px;
+  --sn-space-6: 24px;
+  --sn-control-radius: 8px;
+  --sn-control-height: 44px;
+}
+.skillnet-shell .dsh-connected-controls .dataset-bar {
+  padding: var(--sn-space-4) var(--sn-space-4) var(--sn-space-3);
+}
+.skillnet-shell .dsh-operations {
+  padding: 0 var(--sn-space-4) var(--sn-space-4);
+}
+.skillnet-shell .dsh-taskbar { gap: var(--sn-space-2); }
+.skillnet-shell .dsh-route-query>input { padding: var(--sn-space-2) var(--sn-space-3); }
+.skillnet-shell .dsh-taskbar>.primary-button,
+.skillnet-shell .dsh-workbench-tools>summary {
+  box-sizing: border-box;
+  height: 40px;
+  min-height: 40px;
+  padding: var(--sn-space-2) var(--sn-space-4);
+  line-height: 20px;
+  gap: var(--sn-space-2);
+}
+.skillnet-shell .dsh-page button:not(.primary-button),
+.skillnet-shell .dsh-operations button:not(.primary-button) {
+  min-height: 40px;
+  padding: var(--sn-space-2) var(--sn-space-4);
+  line-height: 20px;
+}
+.skillnet-shell .dsh-page .primary-button {
+  min-height: 40px;
+  padding: var(--sn-space-2) var(--sn-space-4);
+  gap: var(--sn-space-2);
+}
+.skillnet-shell .dsh-page input:not([type=checkbox]),
+.skillnet-shell .dsh-page select,
+.skillnet-shell .dsh-page textarea,
+.skillnet-shell .dsh-model-label select {
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: var(--sn-space-2) var(--sn-space-3);
+  line-height: 20px;
+}
+.skillnet-shell .compact-workbench .collection-control select {
+  padding: var(--sn-space-2) 32px var(--sn-space-2) var(--sn-space-3);
+}
+.skillnet-shell .compact-workbench .local-library-menu>summary {
+  padding: var(--sn-space-2) var(--sn-space-4);
+  box-sizing: border-box;
+  line-height: 20px;
+}
+/* The three toolbar actions share the same shape and insets. */
+.skillnet-shell :is(.compact-workbench .local-library-menu>summary, .dsh-taskbar>.primary-button, .dsh-taskbar>.dsh-workbench-action, .dsh-workbench-tools>summary) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: var(--sn-control-height);
+  min-height: var(--sn-control-height);
+  padding: var(--sn-space-2) var(--sn-space-4);
+  border-width: 1px;
+  border-style: solid;
+  border-radius: var(--sn-control-radius);
+  font-size: 14px;
+  line-height: 24px;
+  white-space: nowrap;
+}
+.skillnet-shell :is(.compact-workbench .local-library-menu>summary, .dsh-taskbar>.dsh-workbench-action, .dsh-workbench-tools>summary) {
+  background: #fff;
+  border-color: #dce6e9;
+  color: #355266;
+  font-weight: 500;
+}
+.skillnet-shell :is(.compact-workbench .local-library-menu>summary, .dsh-taskbar>.dsh-workbench-action:not(:disabled), .dsh-workbench-tools>summary):hover,
+.skillnet-shell :is(.compact-workbench .local-library-menu[open]>summary, .dsh-workbench-tools[open]>summary) {
+  background: #f0f8f5;
+  border-color: #95cdbd;
+}
+.skillnet-shell :is(.compact-workbench .local-library-menu>summary, .dsh-taskbar>.primary-button, .dsh-taskbar>.dsh-workbench-action, .dsh-workbench-tools>summary):focus-visible {
+  outline: 2px solid #078b6b;
+  outline-offset: 2px;
+}
+.skillnet-shell .dsh-tools-body,
+.skillnet-shell .local-library-menu>div { padding: var(--sn-space-4); }
+.skillnet-shell .dsh-card,
+.skillnet-shell .dsh-result,
+.skillnet-shell .dsh-package { padding: var(--sn-space-6); }
+.skillnet-shell .dsh-tasks details { padding: var(--sn-space-4); }
+.skillnet-shell .dsh-catalog .dsh-card>p { margin: var(--sn-space-3) 0; }
+.skillnet-shell .search-box { gap: var(--sn-space-2); padding: 0 var(--sn-space-3); }
+.skillnet-shell .graph-tools { padding: var(--sn-space-1); gap: var(--sn-space-1); }
+.skillnet-shell .graph-tools button {
+  box-sizing: border-box;
+  min-height: 32px;
+  padding: var(--sn-space-2) var(--sn-space-3);
+  line-height: 16px;
+}
+.skillnet-shell .profile-item button,
+.skillnet-shell .evidence-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  box-sizing: border-box;
+  min-height: 18px;
+  padding: 0 4px;
+  border-radius: 3px;
+  line-height: 16px;
+}
+.skillnet-shell .relation-badge {
+  padding: var(--sn-space-1) var(--sn-space-2);
+  line-height: 16px;
+}
+.skillnet-shell .source-frame { padding: var(--sn-space-3); }
+.skillnet-shell .dsh-page form>textarea { padding: var(--sn-space-3); }
+.skillnet-shell .dsh-nav button { min-height: 40px; padding: var(--sn-space-2) var(--sn-space-3); }
