@@ -6,6 +6,12 @@
 
 当前版本 **0.5.0**，适配 **DSH 0.2.2-rc.1**，后端固定 **skillnet-ai==0.1.5**。这是独立适配插件。
 
+[快速安装](#安装) · [第一次使用](#使用) · [常见问题](#常见问题) · [下载发布包](https://github.com/TengJiao33/skillnet-dsh/releases/tag/v0.5.0)
+
+![我的技能库：三栏浏览、关系网图与源码证据](docs/screenshots/library.png)
+
+截图来自当前插件在 DSH 中实际运行的界面，使用 [K-Dense 的公开技能](https://github.com/K-Dense-AI/scientific-agent-skills) 组成隔离示例库；模型栏为演示配置。
+
 ## 功能
 
 | 功能 | 行为 |
@@ -22,14 +28,101 @@
 
 ## 安装
 
-### 环境
+推荐使用发布包：**下载解压 → 准备 Python → 在 DSH 添加本地目录 → 启用**。发布包已带前端构建产物，无需先构建前端。
 
-- DeepSeek Harness **0.2.2-rc.1**。
-- Node.js **22.19 或以上**。
-- Python **3.10 或以上**，并安装本项目的固定版本依赖。
-- 使用模型功能前，在 DSH 中配置可用模型；仅浏览和下载无需模型密钥。
+### 1. 准备 DSH 和 Python
 
-### 从源码安装
+| 依赖 | 要求 |
+| --- | --- |
+| DSH | 已验证 **0.2.2-rc.1**，版本记录见 [官方发布页](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.2-rc.1) |
+| Python | **3.10+**，建议使用已验证的 **3.12**；[官方下载](https://www.python.org/downloads/) |
+| Node.js | 用 `npx` 启动 DSH 或从源码构建时需要 **22.19+**；[官方下载](https://nodejs.org/en/download) |
+| Git | 仅“从源码安装”需要 |
+
+已有 DSH 桌面版可直接使用。没有桌面版时，可以按 [DSH 官方运行说明](https://github.com/deepseek-ai/deepseek-harness#run)，用下面的固定版本启动 Web 界面：
+
+```sh
+npx @deepseek-ai/dsh@0.2.2-rc.1 web
+```
+
+首次进入 DSH，按宿主引导登录 DeepSeek 或配置自己的模型 API Key。SkillNet 默认复用 DSH 的模型，不需要再配置另一套分析模型密钥；插件的技能浏览和下载本身不调用模型。
+
+### 2. 下载发布包并安装 Python 依赖
+
+**Windows / PowerShell**：确认 `python --version` 能显示 Python 3.10 或以上，然后复制执行：
+
+```powershell
+$installRoot = Join-Path $HOME "tools\skillnet-dsh-0.5.0"
+New-Item -ItemType Directory -Force $installRoot | Out-Null
+Set-Location $installRoot
+
+Invoke-WebRequest -Uri "https://github.com/TengJiao33/skillnet-dsh/releases/download/v0.5.0/dsh-skillnet-0.5.0.tgz" -OutFile "dsh-skillnet-0.5.0.tgz"
+tar -xzf .\dsh-skillnet-0.5.0.tgz
+Set-Location .\package
+
+python -m venv .venv
+& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+& .\.venv\Scripts\python.exe -c "from importlib.metadata import version; print(version('skillnet-ai'))"
+
+(Get-Location).Path
+```
+
+版本检查应输出 **`0.1.5`**。最后一行会打印插件目录的绝对路径，下一步要粘贴这个路径，例如：
+
+```text
+C:\Users\你的用户名\tools\skillnet-dsh-0.5.0\package
+```
+
+无需激活虚拟环境：上述命令直接使用 `.venv` 中的 Python。首次安装 Python 依赖可能需要一些时间，等待 `pip install` 成功结束后再添加插件。
+
+<details>
+<summary>macOS / Linux 对应命令</summary>
+
+```bash
+mkdir -p "$HOME/tools/skillnet-dsh-0.5.0"
+cd "$HOME/tools/skillnet-dsh-0.5.0"
+curl -fL "https://github.com/TengJiao33/skillnet-dsh/releases/download/v0.5.0/dsh-skillnet-0.5.0.tgz" -o dsh-skillnet-0.5.0.tgz
+tar -xzf dsh-skillnet-0.5.0.tgz
+cd package
+
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r requirements.txt
+./.venv/bin/python -c "from importlib.metadata import version; print(version('skillnet-ai'))"
+pwd
+```
+
+最后输出的目录用于下一步。Windows 安装流程已在 DSH 原生界面核对；以上为其他系统的对应命令。
+
+</details>
+
+### 3. 在 DSH 中安装并启用
+
+1. 打开 DSH 左侧的 **插件**，点击右上角 **添加插件**。
+2. 在输入框粘贴上一步得到的**插件目录绝对路径**，点击 **安装**。这里填的是包含 `package.json` 的 `package` 目录，不是它的上级目录。
+3. 安装完成后，点击 **立即启用**。
+4. 刷新 DSH 界面；桌面版如仍未出现入口，重新打开 DSH。
+
+![DSH 添加插件：输入解压后的本地插件目录](docs/screenshots/install-plugin.png)
+
+<details>
+<summary>查看安装完成后的“立即启用”界面</summary>
+
+![安装完成后点击立即启用](docs/screenshots/install-enable.png)
+
+</details>
+
+### 4. 确认安装成功
+
+左侧出现 **SkillNet** 后，点击打开，应能看到 **我的技能库 / 发现 / 创建 / 设置** 四个入口。
+
+首次打开会连接个人技能目录 `~/.dsh/skills`；设置了 `DSH_HOME` 时使用该目录下的 `skills`。新用户的列表为空是正常的，按下文从“发现”安装第一个技能即可。
+
+到这里就可以浏览、下载和使用技能，**不必先建图，也不必配置向量模型**。
+
+<details>
+<summary>从源码安装 / 开发</summary>
+
+准备 Git、Node.js 22.19+ 和 Python 3.10+，执行：
 
 ```powershell
 git clone https://github.com/TengJiao33/skillnet-dsh.git
@@ -38,15 +131,31 @@ python -m venv .venv
 & .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 npm ci
 npm run build
+(Get-Location).Path
 ```
 
-在 DSH 桌面版进入 **插件 → 添加插件 → 安装现有插件**，选择该仓库的绝对路径。加载后，左侧会出现 **SkillNet**。
+把最后输出的仓库路径，按第 3 步添加到 DSH。macOS / Linux 使用 `python3 -m venv .venv` 和 `./.venv/bin/python -m pip install -r requirements.txt`。
 
-macOS / Linux 使用 `./.venv/bin/python` 安装 Python 依赖。插件依次寻找：插件配置中的 `python`、环境变量 `DSH_SKILLNET_PYTHON`、插件目录下的 `.venv`、系统 `python`。
+修改前端后需重新执行 `npm run build`。插件按以下顺序寻找 Python：插件配置 `python` → 环境变量 `DSH_SKILLNET_PYTHON` → 插件目录 `.venv` → 系统 `python`。
 
-[Releases](https://github.com/TengJiao33/skillnet-dsh/releases) 提供 `.tgz` 构建包。包中包含客户端构建产物和 Python 适配源码，Python 运行环境及依赖需要另行准备。
+</details>
 
 ## 使用
+
+### 第一次：搜索、安装，再添加到对话
+
+1. 进入 **发现**，浏览技能，或输入 `pdf`、`matplotlib` 等技能名后点击 **搜索**。
+2. 查看卡片上的描述、来源仓库和星标，点击 **查看** 检查技能包内容。
+3. 选定后点击 **下载**；读取并通过结构校验后，在弹窗中点击 **确认安装**，写入个人技能目录。
+4. 回到 **我的技能库**，选择刚安装的技能。新技能显示“未分析”也可以直接使用。
+5. 先在 DSH 新建或打开一个目标对话，再回到技能详情点击 **使用**。
+6. 选择目标对话，点击 **添加到对话**。插件会跳转过去并在输入框追加原生技能引用；继续写任务，再由你发送。
+
+![发现页：描述、来源仓库、星标以及查看和下载入口](docs/screenshots/discover.png)
+
+“添加到对话”保留已有草稿、附件和技能引用，不自动发送消息或启动模型。
+
+![选择目标对话并添加技能引用](docs/screenshots/use-skill.png)
 
 ### 个人技能库
 
@@ -89,9 +198,34 @@ Agent 可以按需调用 `skillnet_route` 比较候选或选择互补技能，�
 
 “创建”提供需求、DSH 对话、任务记录和 GitHub 四种来源。来源对话与推理模型独立，读取的文本可以编辑。生成期间显示进度和取消，完成后以草稿卡片展示；查看后进入预览，再确认个人安装。
 
+例如，选择“描述需求”，写明想复用的用途、处理步骤和期望产物，点击 **生成技能草稿**。完成后点击卡片上的 **查看草稿**，检查内容，再在预览窗口确认安装。
+
+![创建页：选择来源、填写内容并生成技能草稿](docs/screenshots/create.png)
+
 对话来源只读取最近 24 条用户 / 助手文本，最多 80,000 字符，不提取系统提示、工具结果或推理。读取本身不调用模型。
 
 “质量评估”检查安全性、完整性、可执行性、成本意识和可维护性，并保留 SDK 提示注入扫描。成功结果按技能和目录保存；重评时保留原结果，新评估成功后替换，失败或取消不清除旧结果。结构校验与图谱分析不代表技能质量已通过评估。
+
+<details>
+<summary>查看深色主题</summary>
+
+![跟随 DSH 深色主题的技能库与关系图](docs/screenshots/library-dark.png)
+
+</details>
+
+## 常见问题
+
+**安装完成了，但没有 SkillNet 入口？** 先确认已点击“立即启用”，再刷新当前 DSH 界面或重新打开桌面版。安装和使用应在同一个 DSH 界面 / profile 中完成。
+
+**提示无法启动 Python 后端或缺少 skillnet-ai？** 进入添加给 DSH 的插件目录，确认其中有 `package.json`、`requirements.txt`、`src/`、`python/` 和 `.venv/`，再运行第 2 步的 SDK 版本检查。不要只在另一个 Python 环境里安装依赖。自定义解释器可通过插件配置 `python` 或 `DSH_SKILLNET_PYTHON` 指定。
+
+**PowerShell 找不到 python 或 tar？** 先安装 Python 并重新打开终端；如果 Python 启动器可用，也可用 `py -3 -m venv .venv` 创建环境。没有 `tar` 时可用解压工具展开 `.tgz`，进入包含 `package.json` 的目录，再执行 Python 环境准备步骤。
+
+**“我的技能库”为空，或没有关系图？** 本地目录初始为空时，先到“发现”安装技能。图谱需要另行点击“建图”生成；技能加载和默认路由不依赖图谱。默认目录结构是 `skills/<技能名>/SKILL.md`。
+
+**搜索超时，或目录里的技能下载失败？** 搜索和下载分别依赖 SkillNet 目录服务与 GitHub。可稍后重试，或切换“关键词”检索并使用具体技能名；目录结果可能指向历史提交或已经失效的来源路径。
+
+**如何更新？** 将新版本解压到另一个目录，准备好该版本的 Python 环境，再在 DSH“插件”中卸载旧插件、添加新目录并启用。个人技能与分析记录保存在 `DSH_HOME`，不在插件安装目录中。
 
 ## 模型与配置
 
