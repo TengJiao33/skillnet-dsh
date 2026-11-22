@@ -5,7 +5,9 @@ import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
 import { createLibrary, projectRoot } from '../src/library.js';
+import { createWorkspace } from '../src/workspace.js';
 import { pythonExecutable } from '../src/backend.js';
 
 test('personal storage resolves from explicit configuration, DSH_HOME or the current user home', () => {
@@ -78,6 +80,79 @@ test('complete package installs, persists and preserves local edits through remo
   await assert.rejects(reopened.file({ id: record.id, file: 'SKILL.md' }), /已移除/);
   await reopened.restore({ id: record.id });
   assert.equal(await readFile(join(record.path, 'scripts/helper.txt'), 'utf8'), 'user edit');
+});
+
+test('named libraries keep their identity and install separately from the personal library', async t => {
+  const f = await fixture(t);
+  const run = async request => {
+    assert.equal(request.action, 'local-library');
+    return { source: { skills: [] }, graph: null };
+  };
+  const workspace = createWorkspace({}, run, f.library);
+  const personal = (await workspace.connect(await workspace.config())).connection;
+  const { connection: named } = await workspace.createNamed({ name: ' 论文工具 ' });
+  assert.equal(named.name, '论文工具');
+  assert.equal(named.sourcePath, join(f.home, 'skillnet', 'libraries', '论文工具', 'skills'));
+  assert.equal((await workspace.installTargets()).currentId, named.id);
+  await assert.rejects(workspace.createNamed({ name: '论文工具' }), /同名/);
+
+  const { previewId } = await f.library.prepare({ url: 'fixture://source' });
+  const addition = await workspace.install({ previewId, libraryId: named.id });
+  assert.equal(addition.native.effective, false);
+  assert.equal(addition.path, join(named.sourcePath, 'fixture-skill'));
+  assert.equal(await readFile(join(addition.path, 'scripts/helper.txt'), 'utf8'), 'original helper');
+  const readback = sdk({ action: 'local-library', sourcePath: named.sourcePath });
+  assert.ok(readback.source.skills.some(skill => skill.id === 'fixture-skill'));
+  await assert.rejects(lstat(join(personal.sourcePath, 'fixture-skill')), { code: 'ENOENT' });
+  await assert.rejects(workspace.install({ previewId, libraryId: named.id }), /同名/);
+  const nativeInstall = await workspace.install({ previewId, scope: 'user' });
+  assert.equal(nativeInstall.native.effective, true);
+
+  const reopenedLibrary = createLibrary(f.run, f.skills, { dshHome: f.home });
+  const reopened = createWorkspace({}, run, reopenedLibrary);
+  assert.deepEqual(await reopened.config(), { sourcePath: named.sourcePath });
+  await reopened.forget({ libraryId: named.id });
+  await assert.rejects(reopened.install({ previewId, libraryId: named.id }), /连接/);
+  assert.equal((await lstat(addition.path)).isDirectory(), true);
+  assert.deepEqual((await reopened.connect({ sourcePath: named.sourcePath })).connection, named);
+  await reopenedLibrary.remove({ id: addition.id });
+  await reopenedLibrary.restore({ id: addition.id });
+  assert.equal(await readFile(join(addition.path, 'scripts/helper.txt'), 'utf8'), 'original helper');
+  assert.equal((await lstat(nativeInstall.path)).isDirectory(), true);
+});
+
+test('managed folder names handle Windows characters, reserved names and existing folders', async t => {
+  const f = await fixture(t);
+  const root = join(f.home, 'skillnet', 'libraries');
+  assert.equal(await f.library.createManaged('论文/图表'), join(root, '论文-图表', 'skills'));
+  assert.equal(await f.library.createManaged('论文:图表'), join(root, '论文-图表-2', 'skills'));
+  assert.equal(await f.library.createManaged('COM¹.txt'), join(root, '_COM¹.txt', 'skills'));
+  const { name } = JSON.parse(await readFile(join(root, '论文-图表-2', 'library.json'), 'utf8'));
+  assert.equal(name, '论文:图表');
+});
+
+test('existing ID folders and their installed skills remain usable', async t => {
+  const f = await fixture(t);
+  const id = randomUUID();
+  const folder = join(f.home, 'skillnet', 'libraries', id);
+  const sourcePath = join(folder, 'skills');
+  const path = join(sourcePath, 'fixture-skill');
+  await mkdir(sourcePath, { recursive: true });
+  await writeFile(join(folder, 'name.txt'), '旧技能库');
+  await cp(f.source, path, { recursive: true });
+  const saved = { id: randomUUID(), name: 'fixture-skill', scope: 'managed', managedId: id, path, state: 'installed', installedAt: new Date().toISOString() };
+  const installations = join(f.home, 'skillnet', 'installations');
+  await mkdir(installations);
+  await writeFile(join(installations, saved.id + '.json'), JSON.stringify(saved));
+  const workspace = createWorkspace({}, async () => ({ source: { skills: [] }, graph: null }), f.library);
+  const { connection } = await workspace.connect({ sourcePath });
+  assert.equal(connection.id, id);
+  assert.equal(connection.name, '旧技能库');
+  assert.equal(connection.managed, true);
+  assert.equal((await f.library.list()).installed[0].id, saved.id);
+  await f.library.remove({ id: saved.id });
+  await f.library.restore({ id: saved.id });
+  assert.equal(await readFile(join(path, 'scripts/helper.txt'), 'utf8'), 'original helper');
 });
 
 test('project install uses nearest Git root and reports the native winner for same names', async t => {

@@ -171,6 +171,30 @@ var FolderGit2 = createLucideIcon("FolderGit2", [
   ["circle", { cx: "20", cy: "19", r: "2", key: "1obnsp" }]
 ]);
 
+// node_modules/lucide-react/dist/esm/icons/folder-open.js
+var FolderOpen = createLucideIcon("FolderOpen", [
+  [
+    "path",
+    {
+      d: "m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2",
+      key: "usdka0"
+    }
+  ]
+]);
+
+// node_modules/lucide-react/dist/esm/icons/folder-plus.js
+var FolderPlus = createLucideIcon("FolderPlus", [
+  ["path", { d: "M12 10v6", key: "1bos4e" }],
+  ["path", { d: "M9 13h6", key: "1uhe8q" }],
+  [
+    "path",
+    {
+      d: "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z",
+      key: "1kt360"
+    }
+  ]
+]);
+
 // node_modules/lucide-react/dist/esm/icons/git-branch.js
 var GitBranch = createLucideIcon("GitBranch", [
   ["line", { x1: "6", x2: "6", y1: "3", y2: "15", key: "17qcm7" }],
@@ -212,10 +236,26 @@ var Orbit = createLucideIcon("Orbit", [
   ["path", { d: "M13.5 2.1a10 10 0 0 0-9.841 15.416", key: "19pvbm" }]
 ]);
 
+// node_modules/lucide-react/dist/esm/icons/refresh-cw.js
+var RefreshCw = createLucideIcon("RefreshCw", [
+  ["path", { d: "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8", key: "v9h5vc" }],
+  ["path", { d: "M21 3v5h-5", key: "1q7to0" }],
+  ["path", { d: "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16", key: "3uifl3" }],
+  ["path", { d: "M8 16H3v5", key: "1cv678" }]
+]);
+
 // node_modules/lucide-react/dist/esm/icons/search.js
 var Search = createLucideIcon("Search", [
   ["circle", { cx: "11", cy: "11", r: "8", key: "4ej97u" }],
   ["path", { d: "m21 21-4.3-4.3", key: "1qie3q" }]
+]);
+
+// node_modules/lucide-react/dist/esm/icons/settings-2.js
+var Settings2 = createLucideIcon("Settings2", [
+  ["path", { d: "M20 7h-9", key: "3s1dr2" }],
+  ["path", { d: "M14 17H5", key: "gfn3mx" }],
+  ["circle", { cx: "17", cy: "17", r: "3", key: "18b49y" }],
+  ["circle", { cx: "7", cy: "7", r: "3", key: "dfmy0x" }]
 ]);
 
 // node_modules/lucide-react/dist/esm/icons/share-2.js
@@ -249,6 +289,28 @@ var Star = createLucideIcon("Star", [
       key: "r04s7s"
     }
   ]
+]);
+
+// node_modules/lucide-react/dist/esm/icons/unlink.js
+var Unlink = createLucideIcon("Unlink", [
+  [
+    "path",
+    {
+      d: "m18.84 12.25 1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71",
+      key: "yqzxt4"
+    }
+  ],
+  [
+    "path",
+    {
+      d: "m5.17 11.75-1.71 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71",
+      key: "4qinb0"
+    }
+  ],
+  ["line", { x1: "8", x2: "8", y1: "2", y2: "5", key: "1041cp" }],
+  ["line", { x1: "2", x2: "5", y1: "8", y2: "8", key: "14m1p5" }],
+  ["line", { x1: "16", x2: "16", y1: "19", y2: "22", key: "rzdirn" }],
+  ["line", { x1: "19", x2: "22", y1: "16", y2: "16", key: "ox905f" }]
 ]);
 
 // node_modules/lucide-react/dist/esm/icons/upload.js
@@ -578,8 +640,7 @@ function SkillInspector({
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "skill-path", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(FileText, { size: 14 }),
-      " ",
-      skill.path || skill.id
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: skill.path || skill.id })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "capability-card", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "field-label", children: "描述" }),
@@ -656,8 +717,8 @@ function unifiedLibrary(data) {
     return profile ? { ...skill, profile } : skill;
   }) };
 }
-async function localRequest(body, signal) {
-  const response = await fetch(body.action === "create-default" ? "api/skillnet/workspace-create" : "api/skillnet/workspace-read", {
+async function localRequest(action, body, signal) {
+  const response = await fetch(`api/skillnet/workspace-${action}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -682,17 +743,23 @@ async function initialLibraryPath() {
     return null;
   }
 }
-async function createDefaultLibrary() {
-  const value = await localRequest({ action: "create-default" });
+async function createDefaultLibrary(signal) {
+  const value = await localRequest("create", {}, signal);
   return value.sourcePath;
 }
+async function createNamedLibrary(name, signal) {
+  return parseLocalResponse(await localRequest("create", { name }, signal));
+}
 async function readLocalLibrary(library, signal, analysisLocation) {
-  const value = await localRequest(
+  return parseLocalResponse(await localRequest(
+    "read",
     // Normal reads restore the backend connection. Only a user changing the
     // analysis location should submit and validate a new index path.
     { sourcePath: library.sourcePath, ...analysisLocation },
     signal
-  );
+  ));
+}
+function parseLocalResponse(value) {
   if (!value.source || !Array.isArray(value.source.skills))
     throw new Error("技能库返回的数据格式不正确。");
   let analysis = null;
@@ -847,6 +914,9 @@ function comparablePath(value) {
   const path = value.replaceAll("\\", "/").replace(/\/+$/, "");
   return /^[a-zA-Z]:|^\/\//.test(path) ? path.toLowerCase() : path;
 }
+function hasCustomAnalysisDirectory(library) {
+  return Boolean(library.indexPath && comparablePath(library.indexPath) !== `${comparablePath(library.sourcePath)}/.skillnet`);
+}
 function refreshLibrary(library) {
   const key = comparablePath(library.sourcePath);
   const pending = pendingReads.get(key);
@@ -930,7 +1000,7 @@ function useWorkspace() {
     );
   };
   const run = async (work) => {
-    if (operation.current || restoring) return;
+    if (operation.current || restoring) return false;
     background.current?.abort();
     const controller = new AbortController();
     operation.current = controller;
@@ -938,10 +1008,13 @@ function useWorkspace() {
     setError(null);
     try {
       const commit = await work(controller.signal);
-      if (!controller.signal.aborted) commit();
+      if (controller.signal.aborted) return false;
+      commit();
+      return true;
     } catch (cause) {
       if (!controller.signal.aborted)
         setError(cause instanceof Error ? cause.message : "无法加载技能库。");
+      return false;
     } finally {
       if (!controller.signal.aborted) {
         operation.current = null;
@@ -1024,12 +1097,24 @@ function useWorkspace() {
   (0, import_react4.useEffect)(() => {
     const refresh = (event) => {
       const connection = event.detail;
-      if (connection?.sourcePath) void connectLocalLibrary(connection.sourcePath);
+      if (!connection?.sourcePath) return;
+      const library = { ...connection, id: `local:${connection.id}` };
+      if (library.id === collection) void openLocalLibrary(library);
+      else setLocalLibraries((previous) => previous.some((item) => item.id === library.id) ? previous : [...previous, library]);
     };
     window.addEventListener("skillnet-library-changed", refresh);
     return () => window.removeEventListener("skillnet-library-changed", refresh);
   });
-  const createPersonalLibrary = () => run(async (signal) => connect(await createDefaultLibrary(), signal));
+  const createPersonalLibrary = () => run(async (signal) => connect(await createDefaultLibrary(signal), signal));
+  const createLibrary = (name) => run(async (signal) => {
+    const data = await createNamedLibrary(name.trim(), signal);
+    const library = data.connection;
+    if (!library) throw new Error("未能连接新建的技能库。");
+    return () => {
+      setLocalLibraries((previous) => [...previous, library]);
+      selectLocal(library, data);
+    };
+  });
   const updateIndex = (indexPath) => run(async (signal) => {
     const library = localLibraries.find((item) => item.id === collection);
     if (!library) throw new Error("请先选择本地技能库。");
@@ -1120,6 +1205,7 @@ function useWorkspace() {
     openLocalLibrary,
     connectLocalLibrary,
     createPersonalLibrary,
+    createLibrary,
     updateIndex,
     forgetLocalLibrary,
     importFile,
@@ -1354,37 +1440,52 @@ function choicesFrom(children, group) {
     return [{ value: String(child.props.value ?? label), label, group, disabled: !!child.props.disabled }];
   });
 }
-function Select({ value, onValueChange, children, disabled, title, "aria-label": label, compact }) {
-  const choices = (0, import_react6.useMemo)(() => choicesFrom(children), [children]);
-  const selected = choices.findIndex((choice) => choice.value === String(value));
-  const groups = new Set(choices.map((choice) => choice.group).filter(Boolean));
+function matchingChoices(choices, query) {
+  const text = query.trim().normalize("NFKC").toLocaleLowerCase();
+  return text ? choices.filter((choice) => choice.label.normalize("NFKC").toLocaleLowerCase().includes(text)) : choices;
+}
+function Select({ value, onValueChange, children, disabled, title, "aria-label": label, compact, searchPlaceholder }) {
+  const allChoices = (0, import_react6.useMemo)(() => choicesFrom(children), [children]);
+  const selected = allChoices.find((choice) => choice.value === String(value));
   const id = (0, import_react6.useId)();
   const trigger = (0, import_react6.useRef)(null);
   const menu = (0, import_react6.useRef)(null);
+  const search = (0, import_react6.useRef)(null);
   const typeahead = (0, import_react6.useRef)({ text: "", time: 0 });
   const [open, setOpen] = (0, import_react6.useState)(false);
+  const [query, setQuery] = (0, import_react6.useState)("");
   const [active, setActive] = (0, import_react6.useState)(-1);
   const [position, setPosition] = (0, import_react6.useState)({ left: 0, top: 0, width: 220, maxHeight: 320 });
+  const choices = open && searchPlaceholder ? matchingChoices(allChoices, query) : allChoices;
   const enabled = choices.map((choice, index) => choice.disabled ? -1 : index).filter((index) => index >= 0);
-  function show(index = selected >= 0 ? selected : enabled[0]) {
+  const groups = new Set(choices.map((choice) => choice.group).filter(Boolean));
+  const activeId = open && choices[active] ? `${id}-${active}` : void 0;
+  function show(index = selected && !selected.disabled ? allChoices.indexOf(selected) : enabled[0]) {
     if (trigger.current?.matches(":disabled") || !enabled.length) return;
     typeahead.current = { text: "", time: 0 };
+    setQuery("");
     setActive(choices[index]?.disabled ? enabled[0] : index);
     setOpen(true);
+  }
+  function closeAndFocusTrigger() {
+    setOpen(false);
+    trigger.current?.focus({ preventScroll: true });
   }
   function choose(index) {
     const choice = choices[index];
     if (!choice || choice.disabled) return;
-    setOpen(false);
-    trigger.current?.focus({ preventScroll: true });
+    closeAndFocusTrigger();
     if (choice.value !== String(value)) onValueChange(choice.value);
   }
-  function keyDown(event) {
+  function moveActive(direction) {
     const index = enabled.indexOf(active);
+    if (enabled.length) setActive(enabled[Math.max(0, Math.min(enabled.length - 1, index + direction))]);
+  }
+  function keyDown(event) {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       if (!open) show();
-      else setActive(enabled[Math.max(0, Math.min(enabled.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)))]);
+      else moveActive(event.key === "ArrowDown" ? 1 : -1);
     } else if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
       const next = event.key === "Home" ? enabled[0] : enabled.at(-1);
@@ -1416,9 +1517,25 @@ function Select({ value, onValueChange, children, disabled, title, "aria-label":
       }
     }
   }
+  function searchKeyDown(event) {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      moveActive(event.key === "ArrowDown" ? 1 : -1);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      choose(active);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeAndFocusTrigger();
+    } else if (event.key === "Tab") {
+      closeAndFocusTrigger();
+    }
+  }
   (0, import_react6.useLayoutEffect)(() => {
     if (!open) return;
-    if (disabled || !choices.length) {
+    if (disabled || !allChoices.length) {
       setOpen(false);
       return;
     }
@@ -1429,8 +1546,8 @@ function Select({ value, onValueChange, children, disabled, title, "aria-label":
       const below = window.innerHeight - rect.bottom - gap - edge;
       const above = rect.top - gap - edge;
       const aboveTrigger = below < Math.min(menu.current.scrollHeight, 240) && above > below;
-      const maxHeight = Math.max(44, Math.min(320, aboveTrigger ? above : below));
-      const width = Math.min(Math.max(rect.width, 220), window.innerWidth - edge * 2);
+      const maxHeight = Math.max(searchPlaceholder ? 96 : 44, Math.min(320, aboveTrigger ? above : below));
+      const width = Math.min(Math.max(rect.width, searchPlaceholder ? 260 : 220), window.innerWidth - edge * 2);
       const height = Math.min(menu.current.scrollHeight, maxHeight);
       setPosition({ width, maxHeight, left: Math.max(edge, Math.min(rect.left, window.innerWidth - width - edge)), top: aboveTrigger ? Math.max(edge, rect.top - gap - height) : rect.bottom + gap });
     }
@@ -1454,10 +1571,13 @@ function Select({ value, onValueChange, children, disabled, title, "aria-label":
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", scroll, true);
     };
-  }, [open, disabled, choices.length]);
+  }, [open, disabled, allChoices.length, choices.length, searchPlaceholder]);
   (0, import_react6.useLayoutEffect)(() => {
-    if (open) document.getElementById(`${id}-${active}`)?.scrollIntoView({ block: "nearest" });
-  }, [open, active, id]);
+    if (open) search.current?.focus({ preventScroll: true });
+  }, [open, searchPlaceholder]);
+  (0, import_react6.useLayoutEffect)(() => {
+    if (activeId) document.getElementById(activeId)?.scrollIntoView({ block: "nearest" });
+  }, [activeId, query]);
   return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
     /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
       "button",
@@ -1470,39 +1590,69 @@ function Select({ value, onValueChange, children, disabled, title, "aria-label":
         "aria-haspopup": "listbox",
         "aria-expanded": open,
         "aria-controls": open ? id : void 0,
-        "aria-activedescendant": open && active >= 0 ? `${id}-${active}` : void 0,
-        disabled: disabled || !choices.length,
-        title: title || choices[selected]?.label,
+        "aria-activedescendant": searchPlaceholder ? void 0 : activeId,
+        disabled: disabled || !allChoices.length,
+        title: title || selected?.label,
         onClick: () => open ? setOpen(false) : show(),
         onKeyDown: keyDown,
         children: [
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "sn-select-value", children: choices[selected]?.label || "请选择" }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "sn-select-value", children: selected?.label || "请选择" }),
           /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(ChevronDown, { size: 16, "aria-hidden": "true" })
         ]
       }
     ),
-    open && (0, import_react_dom.createPortal)(/* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "skillnet-shell sn-select-portal", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { ref: menu, id, className: "sn-select-menu", role: "listbox", "aria-label": label, style: position, children: choices.map((choice, index) => /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_react6.Fragment, { children: [
-      groups.size > 1 && choice.group && choice.group !== choices[index - 1]?.group && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "sn-select-group", children: choice.group }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
-        "div",
-        {
-          id: `${id}-${index}`,
-          role: "option",
-          "aria-selected": index === selected,
-          "aria-disabled": choice.disabled || void 0,
-          className: `sn-select-option${index === active ? " is-active" : ""}`,
-          onPointerMove: () => {
-            if (!choice.disabled) setActive(index);
-          },
-          onMouseDown: (event) => event.preventDefault(),
-          onClick: () => choose(index),
-          children: [
-            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { children: choice.label }),
-            index === selected && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Check, { size: 16, "aria-hidden": "true" })
-          ]
-        }
-      )
-    ] }, choice.value)) }) }), trigger.current?.closest("dialog") || document.body)
+    open && (0, import_react_dom.createPortal)(/* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "skillnet-shell sn-select-portal", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { ref: menu, className: `sn-select-menu${searchPlaceholder ? " sn-select-searchable" : ""}`, style: position, children: [
+      searchPlaceholder && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "sn-select-search", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Search, { size: 15, "aria-hidden": "true" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "input",
+          {
+            ref: search,
+            type: "text",
+            role: "combobox",
+            "aria-label": searchPlaceholder,
+            placeholder: searchPlaceholder,
+            "aria-expanded": "true",
+            "aria-autocomplete": "list",
+            "aria-controls": id,
+            "aria-activedescendant": activeId,
+            value: query,
+            onKeyDown: searchKeyDown,
+            onChange: (event) => {
+              const next = event.target.value;
+              setQuery(next);
+              setActive(matchingChoices(allChoices, next).findIndex((choice) => !choice.disabled));
+            }
+          }
+        )
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { id, className: "sn-select-options", role: "listbox", "aria-label": label, children: choices.map((choice, index) => {
+        const current = choice.value === String(value);
+        return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_react6.Fragment, { children: [
+          groups.size > 1 && choice.group && choice.group !== choices[index - 1]?.group && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "sn-select-group", children: choice.group }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+            "div",
+            {
+              id: `${id}-${index}`,
+              role: "option",
+              "aria-selected": current,
+              "aria-disabled": choice.disabled || void 0,
+              className: `sn-select-option${index === active ? " is-active" : ""}`,
+              onPointerMove: () => {
+                if (!choice.disabled) setActive(index);
+              },
+              onMouseDown: (event) => event.preventDefault(),
+              onClick: () => choose(index),
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { children: choice.label }),
+                current && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Check, { size: 16, "aria-hidden": "true" })
+              ]
+            }
+          )
+        ] }, choice.value);
+      }) }),
+      searchPlaceholder && !choices.length && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "sn-select-empty", role: "status", children: "没有匹配的选项" })
+    ] }) }), trigger.current?.closest("dialog") || document.body)
   ] });
 }
 
@@ -1510,6 +1660,40 @@ function Select({ value, onValueChange, children, disabled, title, "aria-label":
 var import_jsx_runtime5 = require("react/jsx-runtime");
 function compactNumber(value) {
   return new Intl.NumberFormat("zh-CN").format(value);
+}
+function NewLibraryDialog({ loading, error, onCreate, onClose }) {
+  const dialog = (0, import_react7.useRef)(null);
+  const [name, setName] = (0, import_react7.useState)("");
+  (0, import_react7.useEffect)(() => {
+    dialog.current?.showModal();
+  }, []);
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+    "dialog",
+    {
+      ref: dialog,
+      className: "dsh-use-dialog dsh-new-library-dialog",
+      "aria-labelledby": "skillnet-new-library-heading",
+      onClose,
+      onCancel: (event) => {
+        if (loading) event.preventDefault();
+      },
+      children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("form", { onSubmit: (event) => {
+        event.preventDefault();
+        if (!loading && name.trim()) onCreate(name);
+      }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("h2", { id: "skillnet-new-library-heading", children: "新建技能库" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("label", { className: "dsh-destination", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "技能库名称" }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("input", { autoFocus: true, required: true, maxLength: 60, value: name, disabled: loading, onChange: (event) => setName(event.target.value), placeholder: "例如：论文工具" })
+        ] }),
+        error && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("p", { role: "alert", children: error }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("footer", { className: "dsh-row", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", disabled: loading, onClick: () => dialog.current?.close(), children: "取消" }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "submit", className: "dsh-new-library-submit", disabled: loading || !name.trim(), children: loading ? "正在创建…" : "创建" })
+        ] })
+      ] })
+    }
+  );
 }
 function App({ logoUrl = "/skillnet.png", headerActions, renderActions, renderOptions, renderGraphActions, renderGraphResult, renderSkillActions, renderSkillResult, compactControls = false }) {
   const {
@@ -1527,12 +1711,15 @@ function App({ logoUrl = "/skillnet.png", headerActions, renderActions, renderOp
     openLocalLibrary,
     connectLocalLibrary,
     createPersonalLibrary,
+    createLibrary,
     updateIndex,
     forgetLocalLibrary,
     importFile,
     removeImport,
     changeLibrary
   } = useWorkspace();
+  const [newLibrary, setNewLibrary] = (0, import_react7.useState)(false);
+  const libraryMenu = (0, import_react7.useRef)(null);
   const [sourcePathInput, setSourcePathInput] = (0, import_react7.useState)("");
   const [indexPathInput, setIndexPathInput] = (0, import_react7.useState)("");
   const [selectedRelationId, setSelectedRelationId] = (0, import_react7.useState)(null);
@@ -1545,6 +1732,7 @@ function App({ logoUrl = "/skillnet.png", headerActions, renderActions, renderOp
   const fileInput = (0, import_react7.useRef)(null);
   const skillList = (0, import_react7.useRef)(null);
   const graphCanvas = (0, import_react7.useRef)(null);
+  const detailPanel = (0, import_react7.useRef)(null);
   (0, import_react7.useEffect)(() => {
     setSelectedRelationId(null);
     setQuery("");
@@ -1643,16 +1831,16 @@ function App({ logoUrl = "/skillnet.png", headerActions, renderActions, renderOp
     if (row && rows[0]) list.scrollTop = Math.max(0, row.offsetTop - rows[0].offsetTop);
   }, [selectedSkillId, dataset, filteredSkills]);
   (0, import_react7.useEffect)(() => {
+    const canvas = graphCanvas.current;
+    if (!canvas) return;
     const centerGraph = () => {
-      const canvas = graphCanvas.current;
-      if (canvas && window.matchMedia("(max-width: 760px)").matches) {
-        canvas.scrollLeft = (canvas.scrollWidth - canvas.clientWidth) / 2;
-      }
+      canvas.scrollLeft = (canvas.scrollWidth - canvas.clientWidth) / 2;
     };
     centerGraph();
-    window.addEventListener("resize", centerGraph);
-    return () => window.removeEventListener("resize", centerGraph);
-  }, [selectedSkillId, depth, dataset]);
+    const observer = new ResizeObserver(centerGraph);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [selectedSkillId, depth, dataset, viewMode, relationDataset.kind]);
   const selectSkill = (id) => {
     if (!dataset.skills.some((skill) => skill.id === id)) {
       const saved = relationDataset.skills.find((skill) => skill.id === id);
@@ -1672,6 +1860,7 @@ function App({ logoUrl = "/skillnet.png", headerActions, renderActions, renderOp
   const emptyLocalLibrary = collection.startsWith("local:") && localData?.source.skills.length === 0 && !localData.analysis;
   const showWorkbench = !restoring && collection !== "personal" && !emptyLocalLibrary;
   const currentLibrary = localLibraries.find((item) => item.id === collection);
+  const analysisLibrary = currentLibrary && (!compactControls || hasCustomAnalysisDirectory(currentLibrary)) ? currentLibrary : void 0;
   const workbenchContext = {
     library: currentLibrary,
     localData,
@@ -1711,63 +1900,109 @@ function App({ logoUrl = "/skillnet.png", headerActions, renderActions, renderOp
             {
               value: currentLibrary?.id || "",
               "aria-label": "技能库",
+              searchPlaceholder: compactControls && localLibraries.length > 5 ? "搜索技能库" : void 0,
               disabled: loading || restoring,
               onValueChange: changeLibrary,
               children: localLibraries.map((item) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("option", { value: item.id, children: item.name }, item.id))
             }
           )
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("details", { className: "local-library-menu", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("details", { className: "local-library-menu", ref: libraryMenu, children: [
           /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("summary", { children: compactControls ? "管理" : "目录管理" }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { children: [
-            compactControls && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", onClick: () => fileInput.current?.click(), children: "导入图谱" }),
-            importedDatasets.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("label", { children: [
-              "已导入图谱",
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Select, { "aria-label": "已导入图谱", value: collection.startsWith("imported:") ? collection : "", onValueChange: changeLibrary, children: importedDatasets.map((item) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("option", { value: item.id, children: item.dataset.title }, item.id)) })
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "library-menu-panel", children: [
+            currentLibrary && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "library-menu-location", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "library-menu-location-header", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "当前目录" }),
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("button", { type: "button", className: "library-menu-refresh", "aria-label": "刷新技能库", onClick: () => void openLocalLibrary(currentLibrary), children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(RefreshCw, { size: 14, "aria-hidden": "true" }),
+                  "刷新"
+                ] })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("code", { children: currentLibrary.sourcePath })
             ] }),
-            collection === "personal" && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", onClick: () => void createPersonalLibrary(), children: "连接 DSH 个人技能库" }),
-            compactControls && collection.startsWith("imported:") && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", onClick: () => void removeImport(), children: "移除快照" }),
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("label", { children: [
-              "技能目录路径",
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-                "input",
-                {
-                  value: sourcePathInput,
-                  onChange: (event) => setSourcePathInput(event.target.value),
-                  placeholder: "技能目录的绝对路径"
-                }
-              )
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "library-menu-group", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("button", { type: "button", className: "library-menu-primary", onClick: () => {
+                setError(null);
+                setNewLibrary(true);
+              }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(FolderPlus, { size: 16, "aria-hidden": "true" }),
+                "新建技能库"
+              ] }),
+              collection === "personal" && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("button", { type: "button", onClick: () => void createPersonalLibrary(), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(FolderOpen, { size: 16, "aria-hidden": "true" }),
+                "连接 DSH 个人技能库"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("details", { className: "library-menu-disclosure", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("summary", { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(FolderOpen, { size: 16, "aria-hidden": "true" }),
+                  "连接已有目录",
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(ChevronDown, { size: 14, "aria-hidden": "true" })
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("form", { onSubmit: (event) => {
+                  event.preventDefault();
+                  if (sourcePathInput.trim()) addLocalLibrary();
+                }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("label", { children: [
+                    "技能目录路径",
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                      "input",
+                      {
+                        value: sourcePathInput,
+                        onChange: (event) => setSourcePathInput(event.target.value),
+                        placeholder: "技能目录的绝对路径"
+                      }
+                    )
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "submit", disabled: !sourcePathInput.trim(), children: "连接技能库" })
+                ] })
+              ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", onClick: addLocalLibrary, children: "连接技能库" }),
-            currentLibrary && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("p", { className: "local-path", children: [
-                "当前目录： ",
-                currentLibrary.sourcePath
+            (analysisLibrary || importedDatasets.length > 0) && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "library-menu-group", children: [
+              importedDatasets.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("label", { children: [
+                "已导入图谱",
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Select, { "aria-label": "已导入图谱", value: collection.startsWith("imported:") ? collection : "", onValueChange: changeLibrary, children: importedDatasets.map((item) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("option", { value: item.id, children: item.dataset.title }, item.id)) })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", onClick: () => void openLocalLibrary(currentLibrary), children: "刷新技能库" }),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("label", { children: [
-                "自定义分析目录",
-                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-                  "input",
-                  {
-                    value: indexPathInput,
-                    onChange: (event) => setIndexPathInput(event.target.value),
-                    placeholder: currentLibrary.indexPath ?? "默认：.skillnet"
-                  }
-                )
-              ] }),
-              currentLibrary.indexPath && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("p", { className: "local-path", children: [
-                "分析目录： ",
-                currentLibrary.indexPath
-              ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", onClick: () => void setLocalIndex(), children: "连接分析目录" }),
-              currentLibrary.indexPath && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", onClick: () => void useDefaultIndex(), children: "使用默认分析目录" }),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", onClick: () => void forgetLocalLibrary(), children: "断开技能库" })
-            ] })
+              compactControls && collection.startsWith("imported:") && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { className: "library-menu-disconnect", type: "button", onClick: () => void removeImport(), children: "移除快照" }),
+              analysisLibrary && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("details", { className: "library-menu-disclosure", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("summary", { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Settings2, { size: 16, "aria-hidden": "true" }),
+                  "分析目录",
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(ChevronDown, { size: 14, "aria-hidden": "true" })
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("form", { onSubmit: (event) => {
+                  event.preventDefault();
+                  setLocalIndex();
+                }, children: [
+                  analysisLibrary.indexPath && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "library-menu-location", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "当前分析目录" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("code", { children: analysisLibrary.indexPath })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("label", { children: [
+                    "自定义分析目录",
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                      "input",
+                      {
+                        value: indexPathInput,
+                        onChange: (event) => setIndexPathInput(event.target.value),
+                        placeholder: "分析目录的绝对路径"
+                      }
+                    )
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "library-menu-form-actions", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "submit", disabled: !indexPathInput.trim(), children: "连接分析目录" }),
+                    analysisLibrary.indexPath && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", onClick: useDefaultIndex, children: "使用默认分析目录" })
+                  ] })
+                ] })
+              ] })
+            ] }),
+            currentLibrary && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "library-menu-group", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("button", { type: "button", className: "library-menu-disconnect", onClick: () => void forgetLocalLibrary(), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Unlink, { size: 16, "aria-hidden": "true" }),
+              "断开技能库"
+            ] }) })
           ] })
         ] }),
         renderOptions?.(workbenchContext),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "dataset-actions", children: [
+        !compactControls && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "dataset-actions", children: [
           /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
             "button",
             {
@@ -1844,7 +2079,16 @@ function App({ logoUrl = "/skillnet.png", headerActions, renderActions, renderOp
         ] }),
         localData.warnings.map((warning, index) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("p", { children: warning }, index))
       ] }),
-      error && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "error-banner", role: "alert", children: [
+      newLibrary && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(NewLibraryDialog, { loading, error, onClose: () => {
+        setNewLibrary(false);
+        setError(null);
+      }, onCreate: async (name) => {
+        if (await createLibrary(name)) {
+          setNewLibrary(false);
+          if (libraryMenu.current) libraryMenu.current.open = false;
+        }
+      } }),
+      error && !newLibrary && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "error-banner", role: "alert", children: [
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(CircleHelp, { size: 18 }),
         " ",
         error,
@@ -1856,30 +2100,25 @@ function App({ logoUrl = "/skillnet.png", headerActions, renderActions, renderOp
       ] }) }),
       !restoring && emptyLocalLibrary && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("fieldset", { className: "dataset-controls", disabled: loading, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("section", { className: "onboarding", "aria-label": "空技能库", children: [
         /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "onboarding-intro", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "本地技能库" }),
           /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("h1", { children: "目录中还没有技能" }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("p", { children: "目录已连接。添加技能后，点击“刷新技能库”。" })
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("p", { children: currentLibrary?.managed ? "可从“发现”安装技能，也可手动添加。" : "添加技能后，点击刷新。" })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "onboarding-empty-path", children: [
           /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("strong", { children: "技能目录" }),
           /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("code", { children: currentLibrary?.sourcePath })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "onboarding-next", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("h2", { children: "添加技能" }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("p", { children: "从“发现”安装技能，或从“创建”生成草稿。添加后刷新技能库，再点击“建图 / 更新图谱”。" }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-            "button",
-            {
-              type: "button",
-              className: "primary-button",
-              onClick: () => {
-                if (currentLibrary) void openLocalLibrary(currentLibrary);
-              },
-              disabled: loading,
-              children: "刷新技能库"
-            }
-          )
-        ] })
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "onboarding-next", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "primary-button",
+            onClick: () => {
+              if (currentLibrary) void openLocalLibrary(currentLibrary);
+            },
+            disabled: loading,
+            children: "刷新技能库"
+          }
+        ) })
       ] }) }),
       showWorkbench && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("section", { className: "workbench-heading", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("h1", { children: "技能与关系" }) }),
@@ -2022,9 +2261,9 @@ function App({ logoUrl = "/skillnet.png", headerActions, renderActions, renderOp
                 )
               ] }),
               viewMode === "graph" && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "graph-limit", children: relationDataset.relations.length ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
-                "最多显示 ",
+                "最多 ",
                 depth === 1 ? 10 : 16,
-                " 个相邻技能，全部关系可在列表中查看"
+                " 个相邻技能，全部关系见列表"
               ] }) : "暂无已识别关系" })
             ] }),
             relationDataset.kind === "source" ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "graph-empty", children: [
@@ -2087,10 +2326,13 @@ function App({ logoUrl = "/skillnet.png", headerActions, renderActions, renderOp
                 ] })
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "graph-desktop-help", children: viewMode === "graph" ? "点击节点或连线查看详情" : "点击关系查看场景与证据" }),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "graph-mobile-help", children: viewMode === "graph" ? "滑动查看网图，点击节点或连线查看详情" : "点击关系查看场景与证据" })
+              compactControls ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", className: "text-button graph-details-jump", onClick: () => {
+                detailPanel.current?.scrollIntoView({ block: "start" });
+                detailPanel.current?.focus({ preventScroll: true });
+              }, children: "查看详情" }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "graph-mobile-help", children: viewMode === "graph" ? "滑动查看网图，点击节点或连线查看详情" : "点击关系查看场景与证据" })
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("aside", { className: "detail-panel", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("aside", { className: "detail-panel", ref: detailPanel, tabIndex: -1, "aria-label": selectedRelation ? "关系详情" : "技能详情", children: [
             /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "panel-title", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("strong", { children: selectedRelation ? "关系详情" : "技能详情" }) }),
             selectedRelation ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
               RelationInspector,
@@ -2307,8 +2549,7 @@ function TaskList({ revision, latestTaskId, sourcePath, onlyAction, skillId, ena
         /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("h3", { children: draft.metadata?.name || draft.name }),
         typeof draft.metadata?.description === "string" && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("p", { children: draft.metadata.description }),
         /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "dsh-create-draft-footer", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: Array.isArray(draft.files) ? `${draft.files.length} 个文件` : "" }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: draft.validation?.valid ? "dsh-create-valid" : "dsh-create-invalid", children: draft.validation?.valid ? "结构校验通过" : "结构校验未通过" }),
+          draft.validation?.valid === false && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-create-invalid", children: "结构校验未通过" }),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", disabled: Boolean(previewing), onClick: () => void previewDraft(detail.id, draft.name), children: previewing === draft.name ? "正在打开…" : "查看草稿" })
         ] })
       ] }, draft.name)),
@@ -2415,7 +2656,7 @@ function UseSkillDialog({ selection, onClose, onUseSkill }) {
     /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { children: "保留对话中已有的输入，添加技能后可继续编辑再发送。" }),
     error && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { role: "alert", children: error }),
     preview && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", onClick: () => {
-      window.dispatchEvent(new CustomEvent("skillnet-preview", { detail: preview }));
+      window.dispatchEvent(new CustomEvent("skillnet-preview", { detail: { ...preview, installToPersonal: true } }));
       dialog.current?.close();
     }, children: "预览并安装" }),
     /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("footer", { className: "dsh-row", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "submit", disabled: !sessionId || loading || busy, children: busy ? "正在添加…" : "添加到对话" }) })
@@ -2465,24 +2706,17 @@ function ModelOperationDialog({ context, target, disabled, onClose, onConfirm })
     ] })
   ] }) });
 }
-function AnalysisProgress({ context, active, onOpen }) {
+function useAnalysisStatus(active, sourcePath) {
   const [state, setState] = (0, import_react9.useState)(null);
-  const completed = (0, import_react9.useRef)("");
-  const refresh = (0, import_react9.useRef)(context.refresh);
-  refresh.current = context.refresh;
   (0, import_react9.useEffect)(() => {
-    if (!active || !context.library) return;
+    if (!active || !sourcePath) return;
     const controller = new AbortController();
     let timer;
     const poll = async () => {
       try {
-        const next = await api("analysis-status", { sourcePath: context.library.sourcePath }, controller.signal);
+        const next = await api("analysis-status", { sourcePath }, controller.signal);
         if (controller.signal.aborted) return;
         setState(next);
-        if (next?.status === "completed" && completed.current !== next.sessionId) {
-          completed.current = next.sessionId;
-          refresh.current();
-        }
       } catch {
       }
       if (!controller.signal.aborted) timer = setTimeout(poll, 2500);
@@ -2492,12 +2726,33 @@ function AnalysisProgress({ context, active, onOpen }) {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [active, context.library?.sourcePath]);
-  if (!state || state.status === "completed") return null;
-  return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "dsh-row dsh-context-result", role: "status", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: state.status === "draft" ? "建图草稿已准备，发送后开始。" : `已校验 ${state.progress?.profiles || 0}/${state.progress?.skills || 0} 项画像${state.progress?.candidates != null ? `、${state.progress.relations}/${state.progress.candidates} 对关系` : ""}；可在对话中继续。` }),
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", onClick: () => onOpen(state.sessionId), children: "打开建图对话" })
-  ] });
+  }, [active, sourcePath]);
+  return state;
+}
+function GraphAction({ context, active, busy, onStart, onOpen }) {
+  const state = useAnalysisStatus(active, context.library?.sourcePath);
+  const completed = (0, import_react9.useRef)("");
+  (0, import_react9.useEffect)(() => {
+    if (state?.status === "completed" && completed.current !== state.sessionId) {
+      completed.current = state.sessionId;
+      context.refresh();
+    }
+  }, [state?.sessionId, state?.status, context.refresh]);
+  const running = state?.status === "running";
+  return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+    "button",
+    {
+      type: "button",
+      className: "dsh-workbench-action dsh-graph-action",
+      title: running ? "打开建图对话" : "检查本次更新，有变化时准备建图草稿",
+      disabled: busy || !running && !context.localData?.source.skills.length,
+      onClick: running ? () => onOpen(state.sessionId) : onStart,
+      children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Share2, { size: 18, strokeWidth: 1.8, "aria-hidden": "true" }),
+        busy ? "正在检查…" : running ? "建图中" : context.localData?.analysis ? "更新图谱" : "建图"
+      ]
+    }
+  );
 }
 function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUseSkill, onAnalyze, onOpenAnalysis }) {
   const [retrievalMode, setRetrievalMode] = (0, import_react9.useState)("model");
@@ -2506,6 +2761,7 @@ function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUse
   const [running, setRunning] = (0, import_react9.useState)({});
   const starting = (0, import_react9.useRef)(/* @__PURE__ */ new Set());
   const [errors, setErrors] = (0, import_react9.useState)({});
+  const [notices, setNotices] = (0, import_react9.useState)({});
   const [modelsOpen, setModelsOpen] = (0, import_react9.useState)(false);
   const [useSelection, setUseSelection] = (0, import_react9.useState)(null);
   const [confirmation, setConfirmation] = (0, import_react9.useState)(null);
@@ -2516,9 +2772,18 @@ function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUse
     starting.current.add(key);
     setBusy((value) => ({ ...value, [key]: true }));
     setErrors((value) => ({ ...value, [key]: "" }));
+    setNotices((value) => ({ ...value, [key]: "" }));
     try {
       if (action === "analyze") {
         const draft = await api("analysis-draft", { ...target, sourcePath: context.library.sourcePath, retrievalMode });
+        if (draft.upToDate) {
+          setNotices((value) => ({ ...value, [key]: draft.message }));
+          return;
+        }
+        if (draft.alreadyRunning) {
+          onOpenAnalysis(draft.sessionId);
+          return;
+        }
         onAnalyze(draft);
         return;
       }
@@ -2583,13 +2848,20 @@ function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUse
             /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { children: retrievalMode === "vector" ? "需要配置向量模型，并用此模式建图。" : "使用所选 DSH 模型建图，无需向量配置。" })
           ] })
         ] }),
-        renderGraphActions: (context) => context.library && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("button", { type: "button", className: "dsh-workbench-action dsh-graph-action", title: "打开新对话，发送草稿后开始", disabled: busy[jobKey(context, "analyze")] || !context.localData?.source.skills.length, onClick: () => void start(context, "analyze"), children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Share2, { size: 18, strokeWidth: 1.8, "aria-hidden": "true" }),
-          busy[jobKey(context, "analyze")] ? "正在打开…" : context.localData?.analysis ? "更新图谱" : "建图"
-        ] }),
+        renderGraphActions: (context) => context.library && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+          GraphAction,
+          {
+            context,
+            active,
+            busy: !!busy[jobKey(context, "analyze")],
+            onStart: () => void start(context, "analyze"),
+            onOpen: onOpenAnalysis
+          },
+          context.library.id
+        ),
         renderGraphResult: (context) => context.library && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
           errors[jobKey(context, "analyze")] && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { className: "error-banner", role: "alert", children: errors[jobKey(context, "analyze")] }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(AnalysisProgress, { context, active, onOpen: onOpenAnalysis })
+          notices[jobKey(context, "analyze")] && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { className: "dsh-context-result", role: "status", children: notices[jobKey(context, "analyze")] })
         ] }),
         renderSkillActions: (context) => context.library && context.selectedSkill && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "dsh-skill-actions", role: "group", "aria-label": "当前技能操作", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("button", { className: "dsh-workbench-action", "aria-label": "使用此技能", title: "在 DSH 对话中使用", disabled: !context.localData?.source.skills.some((skill) => skill.id === context.selectedSkill.id), onClick: () => setUseSelection({ sourcePath: context.library.sourcePath, skillId: context.selectedSkill.id, names: [context.selectedSkill.name] }), children: [
           /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(ArrowUpRight, { size: 18, strokeWidth: 1.8, "aria-hidden": "true" }),
@@ -2727,10 +2999,7 @@ function CreatePage({ target, onTarget }) {
           /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(ModelChoice, { value: target, onChange: onTarget, onLoad: setContexts })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("footer", { className: "dsh-create-footer", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("button", { type: "submit", className: "primary-button", disabled: locked || reading || !content.trim(), children: locked ? "正在生成…" : "生成技能草稿" }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "生成后可预览，再确认安装到个人技能库。" })
-      ] })
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("footer", { className: "dsh-create-footer", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("button", { type: "submit", className: "primary-button", disabled: locked || reading || !content.trim(), children: locked ? "正在生成…" : "生成技能草稿" }) })
     ] }),
     error && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("p", { className: "error-banner", role: "alert", children: error }),
     /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(TaskList, { revision, latestTaskId, onlyAction: "create", onRunningChange: setRunning, onSettled: (task) => setPendingTaskId((current) => current === task.id ? null : current) })
@@ -2791,18 +3060,20 @@ function repositoryUrl(source) {
   return void 0;
 }
 var initialCatalog = null;
+var initialCatalogExpiresAt = 0;
 var initialCatalogRequest = null;
 function readInitialCatalog() {
-  if (initialCatalog) return Promise.resolve(initialCatalog);
+  if (initialCatalog && Date.now() < initialCatalogExpiresAt) return Promise.resolve(initialCatalog);
   if (!initialCatalogRequest) initialCatalogRequest = api("discover").then((value) => {
     initialCatalog = value;
+    initialCatalogExpiresAt = Date.now() + 3e5;
     return value;
   }).finally(() => {
     initialCatalogRequest = null;
   });
   return initialCatalogRequest;
 }
-function PackageDialog({ name, action, pending, onClose, children }) {
+function PackageDialog({ name, pending, onClose, children }) {
   const dialog = (0, import_react11.useRef)(null);
   (0, import_react11.useEffect)(() => {
     const element = dialog.current;
@@ -2811,14 +3082,11 @@ function PackageDialog({ name, action, pending, onClose, children }) {
       if (element?.open) element.close();
     };
   }, []);
-  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("dialog", { ref: dialog, className: "dsh-use-dialog dsh-package-dialog", "aria-labelledby": "dsh-package-label dsh-package-heading", onClose, onCancel: (event) => {
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("dialog", { ref: dialog, className: "dsh-use-dialog dsh-package-dialog", "aria-labelledby": "dsh-package-heading", onClose, onCancel: (event) => {
     if (pending) event.preventDefault();
   }, children: [
     /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("header", { className: "dsh-package-dialog-header", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { id: "dsh-package-label", children: action === "download" ? "下载技能" : "技能包详情" }),
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("h2", { id: "dsh-package-heading", children: name })
-      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("h2", { id: "dsh-package-heading", children: name }),
       /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { type: "button", autoFocus: true, disabled: pending, onClick: onClose, children: "关闭" })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "dsh-package-dialog-body", children })
@@ -2832,7 +3100,7 @@ function Catalog({ preview, target, clearPreview }) {
   const [stars, setStars] = (0, import_react11.useState)(0);
   const [threshold, setThreshold] = (0, import_react11.useState)(0.8);
   const [limit, setLimit] = (0, import_react11.useState)(20);
-  const [result, setResult] = (0, import_react11.useState)(initialCatalog);
+  const [result, setResult] = (0, import_react11.useState)(() => Date.now() < initialCatalogExpiresAt ? initialCatalog : null);
   const [browseBusy, setBrowseBusy] = (0, import_react11.useState)(false);
   const [browseError, setBrowseError] = (0, import_react11.useState)("");
   const [library, setLibrary] = (0, import_react11.useState)(null);
@@ -2846,6 +3114,8 @@ function Catalog({ preview, target, clearPreview }) {
   const [error, setError] = (0, import_react11.useState)("");
   const [notice, setNotice] = (0, import_react11.useState)("");
   const [busy, setBusy] = (0, import_react11.useState)(false);
+  const [installTargets, setInstallTargets] = (0, import_react11.useState)(null);
+  const [installTarget, setInstallTarget] = (0, import_react11.useState)("");
   const searchController = (0, import_react11.useRef)(null);
   const packageController = (0, import_react11.useRef)(null);
   const resultVersion = (0, import_react11.useRef)(0);
@@ -2878,6 +3148,21 @@ function Catalog({ preview, target, clearPreview }) {
       setPackageOpen(true);
     }
   }, [preview]);
+  const previewId = detail?.validation.valid ? detail.previewId : null;
+  const forConversation = Boolean(preview?.installToPersonal);
+  (0, import_react11.useEffect)(() => {
+    setInstallTargets(null);
+    if (!previewId) return;
+    const controller = new AbortController();
+    void api("install-targets", {}, controller.signal).then((value) => {
+      if (controller.signal.aborted) return;
+      setInstallTargets({ previewId, targets: forConversation ? value.targets.filter((item) => !item.id) : value.targets });
+      setInstallTarget(forConversation ? "" : value.currentId);
+    }).catch((cause) => {
+      if (!controller.signal.aborted) setInstallTargets({ previewId, targets: [], error: cause.message });
+    });
+    return () => controller.abort();
+  }, [previewId, forConversation]);
   async function act(work) {
     if (busy) return;
     setBusy(true);
@@ -2964,20 +3249,27 @@ function Catalog({ preview, target, clearPreview }) {
     return openPackage(skill.skill_name, (signal) => found && action === "view" ? api("installed", { id: found.id }, signal) : api("inspect", { url: skill.skill_url, catalog: skill }, signal), action);
   }
   const native = (value) => value?.effective ? value.modelInvocable || value.userInvocable ? "DSH 可调用" : "已识别，当前预设禁用调用" : value?.available ? "存在同名覆盖" : "DSH 尚未识别";
-  const installation = detail && (detail.previewId ? /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "dsh-package-install", children: [
-    packageAction === "download" && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { children: detail.validation.valid ? "技能包已读取并通过结构校验，将安装到 DSH 个人技能目录。" : "技能包结构校验未通过，暂不能安装。" }),
-    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "dsh-row", children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { className: "primary-button", disabled: busy || !detail.validation.valid, onClick: () => void act(async () => {
-      const value = await api("install", { previewId: detail.previewId, scope: "user" });
-      setDetail({ ...detail, previewId: null, installationId: value.id, native: value.native });
-      setNotice(`已安装。${native(value.native)}${value.connectionWarning ? "，技能库连接失败：" + value.connectionWarning : ""}`);
+  const targetOptions = installTargets?.previewId === previewId ? installTargets : null;
+  const destination = targetOptions?.targets.find((item) => item.id === installTarget);
+  async function install() {
+    if (!destination || !previewId) return;
+    await act(async () => {
+      const args = destination.id ? { previewId, libraryId: destination.id } : { previewId, scope: "user" };
+      const value = await api("install", args);
+      setDetail({ ...detail, previewId: null, installationId: value.id, native: value.native, record: value });
+      setNotice(`已安装到「${value.libraryName}」。${value.connectionWarning ? "技能库刷新失败：" + value.connectionWarning : ""}`);
       window.dispatchEvent(new CustomEvent("skillnet-library-changed", { detail: value.connection }));
       await refresh();
-    }), children: "确认安装" }) })
-  ] }) : /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
-    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { children: native(detail.native) }),
-    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("pre", { children: `/${detail.name}
-请使用这个技能处理我的任务：` })
-  ] }));
+    });
+  }
+  const savedToManaged = detail?.record?.scope === "managed" && !detail.native?.effective;
+  const installation = detail && (detail.previewId ? /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "dsh-package-install", children: [
+    !detail.validation.valid ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { children: "此技能包无法安装。" }) : targetOptions?.error ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { role: "alert", children: targetOptions.error }) : targetOptions ? /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("label", { className: "dsh-install-target", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: "安装到" }),
+      targetOptions.targets.length > 1 ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Select, { "aria-label": "安装到", value: installTarget, disabled: busy, onValueChange: setInstallTarget, children: targetOptions.targets.map((item) => /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("option", { value: item.id, children: item.name }, item.id)) }) : /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: destination?.name })
+    ] }) : /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { role: "status", children: "正在读取技能库…" }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { type: "button", className: "primary-button", disabled: busy || !destination || !detail.validation.valid, onClick: () => void install(), children: "确认安装" })
+  ] }) : !savedToManaged && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { children: native(detail.native) }));
   return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("main", { className: "dsh-page dsh-discover-page", children: [
     /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("h1", { children: "发现下一项能力" }),
     /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("form", { className: "dsh-search", onSubmit: (e) => {
@@ -3063,10 +3355,10 @@ function Catalog({ preview, target, clearPreview }) {
         }, children: "返回浏览" }),
         (result.mode === "keyword" || Array.isArray(result.candidates)) && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
           /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { disabled: busy || browseBusy || result.page <= 1, onClick: () => result.browse ? void browse(result.page - 1) : searchPage(result.page - 1), children: "上一页" }),
-          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { disabled: busy || browseBusy || (Array.isArray(result.candidates) ? result.page * result.limit >= result.candidates.length : result.skills.length < result.limit), onClick: () => result.browse ? void browse(result.page + 1) : searchPage(result.page + 1), children: "下一页" })
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { disabled: busy || browseBusy || (Array.isArray(result.candidates) ? result.page * result.limit >= result.candidates.length : !(result.hasMore ?? result.skills.length >= result.limit)), onClick: () => result.browse ? void browse(result.page + 1) : searchPage(result.page + 1), children: "下一页" })
         ] })
       ] }),
-      !result.skills.length && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { role: "status", children: result.browse ? "暂无可浏览的技能，可输入任务搜索。" : "没有找到匹配的技能，试试调整搜索内容或筛选条件。" }),
+      !result.skills.length && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { role: "status", children: result.hasMore ? "本页暂无可用技能，可继续查看下一页。" : result.browse ? "暂无可浏览的技能，可输入任务搜索。" : "没有找到匹配的技能，试试调整搜索内容或筛选条件。" }),
       /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "dsh-catalog", children: result.skills.map((skill) => {
         const repository = repositoryUrl(skill.skill_url);
         const source = /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
@@ -3111,19 +3403,13 @@ function Catalog({ preview, target, clearPreview }) {
       notice && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { role: "status", children: notice })
     ] }),
     library?.warnings?.map((warning) => /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { role: "status", children: warning }, warning)),
-    packageOpen && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(PackageDialog, { name: detail?.name || packageName, action: packageAction, pending: busy && !packageLoading, onClose: closePackage, children: [
+    packageOpen && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(PackageDialog, { name: detail?.name || packageName, pending: busy && !packageLoading, onClose: closePackage, children: [
       packageLoading && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { role: "status", children: "正在读取技能包…" }),
       packageError && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { className: "error-banner", role: "alert", children: packageError }),
       busy && !packageLoading && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { role: "status", children: "正在处理…" }),
       error && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { className: "error-banner", role: "alert", children: error }),
       notice && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { role: "status", children: notice }),
       detail && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("section", { className: "dsh-package", "aria-label": "技能包内容", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
-          detail.validation.valid ? "结构校验通过" : "结构校验未通过",
-          " / ",
-          detail.files.length,
-          " 个文件"
-        ] }),
         detail.url && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { href: detail.url, target: "_blank", rel: "noreferrer", children: "原仓库 ↗" }),
         packageAction === "download" && installation,
         [...detail.validation.errors, ...detail.validation.warnings].map((message, i) => /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { role: "status", children: message }, i)),
@@ -4311,7 +4597,8 @@ var skillnet_styles_default = `.skillnet-shell {
   color: #6d8390;
 }
 .skillnet-shell .graph-subtitle .graph-limit {
-  flex-basis: 100%;
+  flex: 1 1 10rem;
+  text-align: end;
 }
 .skillnet-shell .graph-relation-control {
   display: flex;
@@ -4548,7 +4835,7 @@ var skillnet_styles_default = `.skillnet-shell {
   color: #496474;
   flex: none;
 }
-.skillnet-shell .local-library-menu summary {
+.skillnet-shell .local-library-menu > summary {
   list-style: none;
   cursor: pointer;
   padding: 10px 12px;
@@ -4561,59 +4848,123 @@ var skillnet_styles_default = `.skillnet-shell {
 .skillnet-shell .local-library-menu summary::-webkit-details-marker {
   display: none;
 }
-.skillnet-shell .local-library-menu > div {
+.skillnet-shell .local-library-menu > .library-menu-panel {
   position: absolute;
   z-index: 20;
   top: calc(100% + 5px);
   left: 0;
-  width: min(330px, 80vw);
-  padding: 9px;
+  display: grid;
+  gap: 10px;
+  width: min(338px, 90vw);
+  max-height: min(560px, 68dvh);
+  overflow: auto;
+  padding: 12px;
   background: #fff;
   border: 1px solid #dce6e9;
-  border-radius: 9px;
+  border-radius: 10px;
   box-shadow: 0 12px 30px rgba(16, 48, 69, 0.14);
 }
-.skillnet-shell .local-library-menu label {
-  display: block;
-  padding: 6px 9px;
+.skillnet-shell .library-menu-location {
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: #f3f7f8;
   color: #536d79;
-  font-size: 11px;
+  font-size: 12px;
 }
-.skillnet-shell .local-library-menu input {
+.skillnet-shell .library-menu-location-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.skillnet-shell .library-menu-location code {
+  display: block;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.skillnet-shell .library-menu-group {
+  display: grid;
+  gap: 6px;
+}
+.skillnet-shell .library-menu-group + .library-menu-group {
+  border-top: 1px solid #e7edef;
+  padding-top: 9px;
+}
+.skillnet-shell .library-menu-panel label {
+  display: grid;
+  gap: 5px;
+  color: #536d79;
+  font-size: 12px;
+}
+.skillnet-shell .library-menu-panel input {
   display: block;
   width: 100%;
-  margin-top: 5px;
+  min-width: 0;
   padding: 8px;
   border: 1px solid #dce6e9;
-  border-radius: 6px;
+  border-radius: 7px;
+  background: #fff;
   color: #223d4c;
   font: inherit;
 }
-.skillnet-shell .local-path {
-  margin: 4px 9px;
-  padding: 7px 0;
-  color: #6b7d89;
-  font-size: 11px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-  border-bottom: 1px solid #e7edef;
-}
-.skillnet-shell .local-library-menu button {
-  display: block;
+.skillnet-shell .library-menu-panel :is(button:not(.sn-select), summary) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  padding: 9px 10px;
-  border: 0;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid #dce6e9;
+  border-radius: 7px;
   background: #fff;
   text-align: left;
   color: #314c5c;
-  font: inherit;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
   cursor: pointer;
-  white-space: nowrap;
+  list-style: none;
 }
-.skillnet-shell .local-library-menu button:hover {
+.skillnet-shell .library-menu-panel :is(button:enabled:not(.sn-select):hover, summary:hover, details[open] > summary) {
   background: #eef7f4;
   color: #087b61;
 }
+.skillnet-shell .library-menu-panel button:disabled:not(.sn-select) {
+  opacity: .55;
+  cursor: default;
+}
+.skillnet-shell .library-menu-panel button.library-menu-primary {
+  border-color: #95cdbd;
+  background: #e4f4ef;
+  color: #067a5f;
+  font-weight: 600;
+}
+.skillnet-shell .library-menu-panel button.library-menu-primary:enabled:hover { background: #c9eee4; }
+.skillnet-shell .library-menu-panel button.library-menu-refresh {
+  width: auto;
+  min-height: 30px;
+  padding: 4px 7px;
+  font-size: 12px;
+}
+.skillnet-shell .library-menu-panel button.library-menu-disconnect { color: #a7503c; }
+.skillnet-shell .library-menu-panel button.library-menu-disconnect:enabled:hover { background: #fff6f3; }
+.skillnet-shell .library-menu-panel svg { flex: none; }
+.skillnet-shell .library-menu-disclosure > summary > svg:last-child { margin-inline-start: auto; }
+.skillnet-shell .library-menu-disclosure[open] > summary > svg:last-child { transform: rotate(180deg); }
+.skillnet-shell .library-menu-disclosure > form {
+  display: grid;
+  gap: 8px;
+  padding: 10px 4px 4px;
+}
+.skillnet-shell .library-menu-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.skillnet-shell .library-menu-form-actions button:not(.sn-select) { width: auto; }
 .skillnet-shell .stale-banner {
   margin-top: 10px;
   padding: 10px 14px;
@@ -4826,7 +5177,7 @@ var skillnet_styles_default = `.skillnet-shell {
 .skillnet-shell .primary-button,
 .skillnet-shell .onboarding-secondary,
 .skillnet-shell .onboarding-connected button,
-.skillnet-shell .local-library-menu summary,
+.skillnet-shell .local-library-menu > summary,
 .skillnet-shell .graph-tools,
 .skillnet-shell .graph-tools button {
   border-radius: 0;
@@ -4934,7 +5285,6 @@ var skillnet_styles_default = `.skillnet-shell {
 .skillnet-shell .dsh-model-choice>button{flex:none;white-space:nowrap}
 .skillnet-shell .dsh-model-choice>[role=alert]{flex-basis:100%}
 .skillnet-shell .dsh-page>.dsh-model-choice{margin-bottom:18px}
-.skillnet-shell .compact-workbench .dataset-actions{display:none}
 .skillnet-shell .dsh-connected-controls .dataset-bar{border-bottom:1px solid #e3ebef;border-radius:12px;margin-bottom:18px;gap:12px}
 .skillnet-shell .compact-workbench .workbench-heading{display:none}
 .skillnet-shell .dsh-taskbar{display:grid;grid-template-columns:minmax(0,1fr) repeat(4,max-content);align-items:center;gap:8px;min-width:0}
@@ -4997,19 +5347,23 @@ var skillnet_styles_default = `.skillnet-shell {
 .skillnet-shell .dsh-use-task>textarea{width:100%;min-height:88px;resize:vertical;padding:12px;border:1px solid #dce6e9;border-radius:8px;font:400 14px/1.7 var(--sn-ui-font)}
 .skillnet-shell .dsh-use-dialog h3.dsh-use-skills{margin:0;font-size:24px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
 .skillnet-shell .dsh-use-dialog footer{justify-content:flex-end}
+.skillnet-shell .dsh-new-library-dialog{box-sizing:border-box;width:min(420px,calc(100vw - 32px))}
+.skillnet-shell .dsh-new-library-dialog input{width:100%;min-height:44px;padding:8px 12px;border:1px solid #dce6e9;border-radius:8px;background:#fff;color:inherit;font:inherit}
+.skillnet-shell .dsh-new-library-dialog button.dsh-new-library-submit{background:#087b61;color:#fff;border-color:#087b61}
+.skillnet-shell .dsh-new-library-dialog button:disabled{opacity:.55}
 .skillnet-shell .dsh-package-dialog{width:min(960px,calc(100vw - 48px));max-height:calc(100dvh - 48px);padding:20px;overflow:hidden}
 .skillnet-shell .dsh-package-dialog[open]{display:flex;flex-direction:column;gap:16px}
 .skillnet-shell .dsh-package-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex:none}
-.skillnet-shell .dsh-package-dialog-header>div{min-width:0}
-.skillnet-shell .dsh-package-dialog-header p{margin:0 0 4px;color:#5b6f7d;font-size:12px}
-.skillnet-shell .dsh-package-dialog-header h2{font-size:20px;font-weight:600;overflow-wrap:anywhere}
+.skillnet-shell .dsh-package-dialog-header h2{min-width:0;font-size:20px;font-weight:600;overflow-wrap:anywhere}
 .skillnet-shell dialog.dsh-package-dialog .dsh-package-dialog-header>button{flex:none;min-height:32px;padding:4px 10px;font-size:13px;line-height:22px}
 .skillnet-shell .dsh-package-dialog-body{min-height:0;overflow:auto;overscroll-behavior:contain}
 .skillnet-shell .dsh-package-dialog .dsh-package{margin:0;padding:0;border:0;border-radius:0;background:transparent}
 .skillnet-shell .dsh-package-dialog .dsh-package>pre{max-height:none;overflow:visible;font-size:13px}
-.skillnet-shell .dsh-package-dialog .dsh-package>a{display:inline-block;margin-left:12px;color:#087b61}
-.skillnet-shell .dsh-package-install{margin:16px 0;padding:12px;border:1px solid #e3ebef;border-radius:8px;background:#f4f8f7}
-.skillnet-shell .dsh-package-install>p{margin-bottom:12px}
+.skillnet-shell .dsh-package-dialog .dsh-package>a{display:inline-block;color:#087b61}
+.skillnet-shell .dsh-package-install{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin:16px 0;padding:12px;border:1px solid #e3ebef;border-radius:8px;background:#f4f8f7}
+.skillnet-shell .dsh-install-target{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-right:auto}
+.skillnet-shell .dsh-use-dialog .dsh-package-install>button.primary-button{background:#087b61;color:#fff;border-color:#087b61}
+.skillnet-shell .dsh-use-dialog .dsh-package-install>button:disabled{opacity:.55}
 .skillnet-shell .dsh-graph-dialog{width:min(420px,calc(100vw - 32px));padding:20px}
 .skillnet-shell .dsh-graph-confirm{display:grid;gap:12px}
 .skillnet-shell .dsh-graph-dialog h2{font-size:18px}
@@ -5116,19 +5470,101 @@ var skillnet_styles_default = `.skillnet-shell {
 @media (max-width: 760px) {
   .skillnet-shell .source-dialog { width: calc(100vw - 24px); height: calc(100dvh - 24px); padding: 16px; }
 }
-/* Fill the desktop host panel; each column keeps its own scrolling area. */
-@media (min-width: 1161px) {
+/* DSH's sidebar consumes space inside the window. Use the panel's width. */
+.skillnet-shell:has(>.compact-workbench) { container: skillnet-panel / inline-size; }
+.skillnet-shell .compact-workbench .skill-list .skill-row { height: auto; }
+.skillnet-shell .compact-workbench .skill-row-name { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.skillnet-shell .compact-workbench .inspector-content { min-width: 0; overflow-wrap: anywhere; }
+.skillnet-shell .compact-workbench .skill-path>span { min-width: 0; }
+.skillnet-shell .compact-workbench .skill-detail-heading { flex-wrap: wrap; }
+.skillnet-shell .compact-workbench .skill-detail-heading h2 { flex-basis: 12ch; }
+.skillnet-shell .compact-workbench .related-list button>span:nth-child(2) { white-space: normal; overflow: visible; }
+.skillnet-shell .compact-workbench .graph-canvas {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+.skillnet-shell .compact-workbench .graph-canvas .graph-svg {
+  flex: none;
+  width: 100%;
+  min-width: 600px;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 680 / 460;
+}
+.skillnet-shell .compact-workbench .relation-list-view { min-height: 260px; max-height: none; }
+.skillnet-shell .compact-workbench .relation-list { flex: 1; min-height: 0; contain: size; }
+.skillnet-shell .compact-workbench .graph-footer {
+  height: auto;
+  min-height: 49px;
+  padding: 6px 16px;
+  flex-wrap: wrap;
+}
+.skillnet-shell .graph-details-jump { display: none; }
+
+@container skillnet-panel (width >= 1200px) {
   .skillnet-shell:not(.dsh-other-page)>.compact-workbench { display: flex; flex-direction: column; height: 100%; }
   .skillnet-shell .compact-workbench>.site-header { flex: none; }
   .skillnet-shell:not(.dsh-other-page)>.compact-workbench>main { display: flex; flex-direction: column; flex: 1; min-height: 0; width: 100%; margin: 0 auto; padding-bottom: 20px; }
   .skillnet-shell .compact-workbench .dataset-controls,
   .skillnet-shell .compact-workbench .dsh-operations { flex: none; }
-  .skillnet-shell .compact-workbench .workspace { flex: 1; }
+  .skillnet-shell .compact-workbench .workspace {
+    display: grid;
+    grid-template-columns: minmax(190px, .75fr) minmax(600px, 2fr) minmax(300px, 1.15fr);
+    flex: 1;
+    min-height: min-content;
+  }
   .skillnet-shell .compact-workbench :is(.skill-panel, .detail-panel) { display: flex; flex-direction: column; min-height: 0; }
   .skillnet-shell .compact-workbench :is(.panel-title, .search-box, .list-caption) { flex: none; }
   .skillnet-shell .compact-workbench :is(.skill-list, .inspector-content) { flex: 1 1 0; min-height: 0; max-height: none; }
-  .skillnet-shell .compact-workbench :is(.graph-panel, .graph-canvas, .graph-empty) { min-height: 0; }
-  .skillnet-shell .compact-workbench .graph-svg { height: 100%; }
+  .skillnet-shell .compact-workbench .graph-canvas { position: relative; min-height: calc(600px * 460 / 680); }
+  .skillnet-shell .compact-workbench .graph-canvas .graph-svg { position: absolute; inset: 0; height: 100%; }
+  .skillnet-shell .compact-workbench .graph-empty { min-height: 280px; }
+}
+
+@container skillnet-panel (width < 1200px) {
+  .skillnet-shell .compact-workbench>main,
+  .skillnet-shell .compact-workbench .site-header-inner { padding-inline: 20px; }
+  .skillnet-shell .compact-workbench .header-link { display: none; }
+  .skillnet-shell .compact-workbench .workspace {
+    display: grid;
+    grid-template-columns: clamp(190px, 23cqi, 244px) minmax(0, 1fr);
+    min-height: 0;
+    margin-bottom: 20px;
+  }
+  .skillnet-shell .compact-workbench .graph-panel { border-right: 0; }
+  .skillnet-shell .compact-workbench .graph-empty { min-height: 240px; }
+  .skillnet-shell .compact-workbench .relation-list-view { min-height: max(260px, 52dvh); }
+  .skillnet-shell .compact-workbench .detail-panel {
+    grid-column: 1 / -1;
+    border-top: 1px solid #e4eaee;
+  }
+  .skillnet-shell .compact-workbench .inspector-content { max-width: 960px; max-height: none; }
+  .skillnet-shell .compact-workbench .graph-footer .graph-desktop-help { display: none; }
+  .skillnet-shell .compact-workbench .graph-details-jump { display: inline-flex; color: var(--sn-profile-title); }
+}
+
+@container skillnet-panel (width < 840px) {
+  .skillnet-shell .compact-workbench>main,
+  .skillnet-shell .compact-workbench .site-header-inner { padding-inline: 14px; }
+  .skillnet-shell .compact-workbench .site-header-inner { gap: 8px; }
+  .skillnet-shell .compact-workbench .dataset-bar { position: relative; }
+  .skillnet-shell .compact-workbench .local-library-menu { position: static; }
+  .skillnet-shell .compact-workbench .library-menu-panel { left: 12px; max-width: calc(100% - 24px); }
+  .skillnet-shell .compact-workbench .workspace { grid-template-columns: minmax(0, 1fr); }
+  .skillnet-shell .compact-workbench .skill-panel { border-right: 0; border-bottom: 1px solid #e4eaee; }
+  .skillnet-shell .compact-workbench .graph-panel { border-bottom: 0; }
+  .skillnet-shell .compact-workbench .skill-list { max-height: 208px; }
+}
+
+@container skillnet-panel (width < 460px) {
+  .skillnet-shell .compact-workbench .site-header { height: auto; }
+  .skillnet-shell .compact-workbench .site-header-inner { flex-wrap: wrap; padding-block: 4px; }
+  .skillnet-shell .compact-workbench .brand,
+  .skillnet-shell .compact-workbench .brand img { width: 101px; }
+  .skillnet-shell .compact-workbench .brand { height: 44px; }
+  .skillnet-shell .compact-workbench .dsh-nav { flex-wrap: wrap; gap: 0; }
+  .skillnet-shell .compact-workbench .dsh-nav button { padding-inline: 8px; }
 }
 
 /* Fluent's 4px ramp: component insets are distinct from gaps between components.
@@ -6407,7 +6843,8 @@ var skillnet_styles_default = `.skillnet-shell {
   color: var(--sn-text-secondary);
 }
 :where(body[data-ds-dark-theme]) .skillnet-shell .graph-subtitle .graph-limit {
-  flex-basis: 100%;
+  flex: 1 1 10rem;
+  text-align: end;
 }
 :where(body[data-ds-dark-theme]) .skillnet-shell .graph-relation-control {
   display: flex;
@@ -6644,7 +7081,7 @@ var skillnet_styles_default = `.skillnet-shell {
   color: var(--sn-text-secondary);
   flex: none;
 }
-:where(body[data-ds-dark-theme]) .skillnet-shell .local-library-menu summary {
+:where(body[data-ds-dark-theme]) .skillnet-shell .local-library-menu > summary {
   list-style: none;
   cursor: pointer;
   padding: 10px 12px;
@@ -6657,59 +7094,123 @@ var skillnet_styles_default = `.skillnet-shell {
 :where(body[data-ds-dark-theme]) .skillnet-shell .local-library-menu summary::-webkit-details-marker {
   display: none;
 }
-:where(body[data-ds-dark-theme]) .skillnet-shell .local-library-menu > div {
+:where(body[data-ds-dark-theme]) .skillnet-shell .local-library-menu > .library-menu-panel {
   position: absolute;
   z-index: 20;
   top: calc(100% + 5px);
   left: 0;
-  width: min(330px, 80vw);
-  padding: 9px;
+  display: grid;
+  gap: 10px;
+  width: min(338px, 90vw);
+  max-height: min(560px, 68dvh);
+  overflow: auto;
+  padding: 12px;
   background: var(--sn-surface);
   border: 1px solid var(--sn-border);
-  border-radius: 9px;
+  border-radius: 10px;
   box-shadow: 0 12px 30px var(--sn-shadow);
 }
-:where(body[data-ds-dark-theme]) .skillnet-shell .local-library-menu label {
-  display: block;
-  padding: 6px 9px;
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-location {
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: var(--sn-surface-muted);
   color: var(--sn-text-secondary);
-  font-size: 11px;
+  font-size: 12px;
 }
-:where(body[data-ds-dark-theme]) .skillnet-shell .local-library-menu input {
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-location-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-location code {
+  display: block;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.5;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-group {
+  display: grid;
+  gap: 6px;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-group + .library-menu-group {
+  border-top: 1px solid var(--sn-border);
+  padding-top: 9px;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-panel label {
+  display: grid;
+  gap: 5px;
+  color: var(--sn-text-secondary);
+  font-size: 12px;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-panel input {
   display: block;
   width: 100%;
-  margin-top: 5px;
+  min-width: 0;
   padding: 8px;
   border: 1px solid var(--sn-border);
-  border-radius: 6px;
+  border-radius: 7px;
+  background: var(--sn-surface);
   color: var(--sn-text);
   font: inherit;
 }
-:where(body[data-ds-dark-theme]) .skillnet-shell .local-path {
-  margin: 4px 9px;
-  padding: 7px 0;
-  color: var(--sn-text-secondary);
-  font-size: 11px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-  border-bottom: 1px solid var(--sn-border);
-}
-:where(body[data-ds-dark-theme]) .skillnet-shell .local-library-menu button {
-  display: block;
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-panel :is(button:not(.sn-select), summary) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  padding: 9px 10px;
-  border: 0;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--sn-border);
+  border-radius: 7px;
   background: var(--sn-surface);
   text-align: left;
   color: var(--sn-text);
-  font: inherit;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
   cursor: pointer;
-  white-space: nowrap;
+  list-style: none;
 }
-:where(body[data-ds-dark-theme]) .skillnet-shell .local-library-menu button:hover {
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-panel :is(button:enabled:not(.sn-select):hover, summary:hover, details[open] > summary) {
   background: var(--sn-accent-bg);
   color: var(--sn-accent);
 }
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-panel button:disabled:not(.sn-select) {
+  opacity: .55;
+  cursor: default;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-panel button.library-menu-primary {
+  border-color: var(--sn-accent-border);
+  background: var(--sn-accent-bg);
+  color: var(--sn-accent);
+  font-weight: 600;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-panel button.library-menu-primary:enabled:hover { background: var(--sn-accent-bg); }
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-panel button.library-menu-refresh {
+  width: auto;
+  min-height: 30px;
+  padding: 4px 7px;
+  font-size: 12px;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-panel button.library-menu-disconnect { color: var(--sn-error); }
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-panel button.library-menu-disconnect:enabled:hover { background: var(--sn-error-bg); }
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-panel svg { flex: none; }
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-disclosure > summary > svg:last-child { margin-inline-start: auto; }
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-disclosure[open] > summary > svg:last-child { transform: rotate(180deg); }
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-disclosure > form {
+  display: grid;
+  gap: 8px;
+  padding: 10px 4px 4px;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .library-menu-form-actions button:not(.sn-select) { width: auto; }
 :where(body[data-ds-dark-theme]) .skillnet-shell .stale-banner {
   margin-top: 10px;
   padding: 10px 14px;
@@ -6922,7 +7423,7 @@ var skillnet_styles_default = `.skillnet-shell {
 :where(body[data-ds-dark-theme]) .skillnet-shell .primary-button,
 :where(body[data-ds-dark-theme]) .skillnet-shell .onboarding-secondary,
 :where(body[data-ds-dark-theme]) .skillnet-shell .onboarding-connected button,
-:where(body[data-ds-dark-theme]) .skillnet-shell .local-library-menu summary,
+:where(body[data-ds-dark-theme]) .skillnet-shell .local-library-menu > summary,
 :where(body[data-ds-dark-theme]) .skillnet-shell .graph-tools,
 :where(body[data-ds-dark-theme]) .skillnet-shell .graph-tools button {
   border-radius: 0;
@@ -7030,7 +7531,6 @@ var skillnet_styles_default = `.skillnet-shell {
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-model-choice>button{flex:none;white-space:nowrap}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-model-choice>[role=alert]{flex-basis:100%}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-page>.dsh-model-choice{margin-bottom:18px}
-:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .dataset-actions{display:none}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-connected-controls .dataset-bar{border-bottom:1px solid var(--sn-border);border-radius:12px;margin-bottom:18px;gap:12px}
 :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .workbench-heading{display:none}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-taskbar{display:grid;grid-template-columns:minmax(0,1fr) repeat(4,max-content);align-items:center;gap:8px;min-width:0}
@@ -7093,19 +7593,23 @@ var skillnet_styles_default = `.skillnet-shell {
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-use-task>textarea{width:100%;min-height:88px;resize:vertical;padding:12px;border:1px solid var(--sn-border);border-radius:8px;font:400 14px/1.7 var(--sn-ui-font)}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-use-dialog h3.dsh-use-skills{margin:0;font-size:24px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-use-dialog footer{justify-content:flex-end}
+:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-new-library-dialog{box-sizing:border-box;width:min(420px,calc(100vw - 32px))}
+:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-new-library-dialog input{width:100%;min-height:44px;padding:8px 12px;border:1px solid var(--sn-border);border-radius:8px;background:var(--sn-surface);color:inherit;font:inherit}
+:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-new-library-dialog button.dsh-new-library-submit{background:var(--sn-accent);color:var(--sn-button-label);border-color:var(--sn-accent)}
+:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-new-library-dialog button:disabled{opacity:.55}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-dialog{width:min(960px,calc(100vw - 48px));max-height:calc(100dvh - 48px);padding:20px;overflow:hidden}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-dialog[open]{display:flex;flex-direction:column;gap:16px}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex:none}
-:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-dialog-header>div{min-width:0}
-:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-dialog-header p{margin:0 0 4px;color:var(--sn-text-secondary);font-size:12px}
-:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-dialog-header h2{font-size:20px;font-weight:600;overflow-wrap:anywhere}
+:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-dialog-header h2{min-width:0;font-size:20px;font-weight:600;overflow-wrap:anywhere}
 :where(body[data-ds-dark-theme]) .skillnet-shell dialog.dsh-package-dialog .dsh-package-dialog-header>button{flex:none;min-height:32px;padding:4px 10px;font-size:13px;line-height:22px}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-dialog-body{min-height:0;overflow:auto;overscroll-behavior:contain}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-dialog .dsh-package{margin:0;padding:0;border:0;border-radius:0;background:transparent}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-dialog .dsh-package>pre{max-height:none;overflow:visible;font-size:13px}
-:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-dialog .dsh-package>a{display:inline-block;margin-left:12px;color:var(--sn-accent)}
-:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-install{margin:16px 0;padding:12px;border:1px solid var(--sn-border);border-radius:8px;background:var(--sn-surface-muted)}
-:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-install>p{margin-bottom:12px}
+:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-dialog .dsh-package>a{display:inline-block;color:var(--sn-accent)}
+:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-package-install{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin:16px 0;padding:12px;border:1px solid var(--sn-border);border-radius:8px;background:var(--sn-surface-muted)}
+:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-install-target{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-right:auto}
+:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-use-dialog .dsh-package-install>button.primary-button{background:var(--sn-accent);color:var(--sn-button-label);border-color:var(--sn-accent)}
+:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-use-dialog .dsh-package-install>button:disabled{opacity:.55}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-graph-dialog{width:min(420px,calc(100vw - 32px));padding:20px}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-graph-confirm{display:grid;gap:12px}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-graph-dialog h2{font-size:18px}
@@ -7212,19 +7716,101 @@ var skillnet_styles_default = `.skillnet-shell {
 @media (max-width: 760px) {
   :where(body[data-ds-dark-theme]) .skillnet-shell .source-dialog { width: calc(100vw - 24px); height: calc(100dvh - 24px); padding: 16px; }
 }
-/* Fill the desktop host panel; each column keeps its own scrolling area. */
-@media (min-width: 1161px) {
+/* DSH's sidebar consumes space inside the window. Use the panel's width. */
+:where(body[data-ds-dark-theme]) .skillnet-shell:has(>.compact-workbench) { container: skillnet-panel / inline-size; }
+:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .skill-list .skill-row { height: auto; }
+:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .skill-row-name { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .inspector-content { min-width: 0; overflow-wrap: anywhere; }
+:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .skill-path>span { min-width: 0; }
+:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .skill-detail-heading { flex-wrap: wrap; }
+:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .skill-detail-heading h2 { flex-basis: 12ch; }
+:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .related-list button>span:nth-child(2) { white-space: normal; overflow: visible; }
+:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .graph-canvas {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .graph-canvas .graph-svg {
+  flex: none;
+  width: 100%;
+  min-width: 600px;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 680 / 460;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .relation-list-view { min-height: 260px; max-height: none; }
+:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .relation-list { flex: 1; min-height: 0; contain: size; }
+:where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .graph-footer {
+  height: auto;
+  min-height: 49px;
+  padding: 6px 16px;
+  flex-wrap: wrap;
+}
+:where(body[data-ds-dark-theme]) .skillnet-shell .graph-details-jump { display: none; }
+
+@container skillnet-panel (width >= 1200px) {
   :where(body[data-ds-dark-theme]) .skillnet-shell:not(.dsh-other-page)>.compact-workbench { display: flex; flex-direction: column; height: 100%; }
   :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench>.site-header { flex: none; }
   :where(body[data-ds-dark-theme]) .skillnet-shell:not(.dsh-other-page)>.compact-workbench>main { display: flex; flex-direction: column; flex: 1; min-height: 0; width: 100%; margin: 0 auto; padding-bottom: 20px; }
   :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .dataset-controls,
   :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .dsh-operations { flex: none; }
-  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .workspace { flex: 1; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .workspace {
+    display: grid;
+    grid-template-columns: minmax(190px, .75fr) minmax(600px, 2fr) minmax(300px, 1.15fr);
+    flex: 1;
+    min-height: min-content;
+  }
   :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench :is(.skill-panel, .detail-panel) { display: flex; flex-direction: column; min-height: 0; }
   :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench :is(.panel-title, .search-box, .list-caption) { flex: none; }
   :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench :is(.skill-list, .inspector-content) { flex: 1 1 0; min-height: 0; max-height: none; }
-  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench :is(.graph-panel, .graph-canvas, .graph-empty) { min-height: 0; }
-  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .graph-svg { height: 100%; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .graph-canvas { position: relative; min-height: calc(600px * 460 / 680); }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .graph-canvas .graph-svg { position: absolute; inset: 0; height: 100%; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .graph-empty { min-height: 280px; }
+}
+
+@container skillnet-panel (width < 1200px) {
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench>main,
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .site-header-inner { padding-inline: 20px; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .header-link { display: none; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .workspace {
+    display: grid;
+    grid-template-columns: clamp(190px, 23cqi, 244px) minmax(0, 1fr);
+    min-height: 0;
+    margin-bottom: 20px;
+  }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .graph-panel { border-right: 0; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .graph-empty { min-height: 240px; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .relation-list-view { min-height: max(260px, 52dvh); }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .detail-panel {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--sn-border);
+  }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .inspector-content { max-width: 960px; max-height: none; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .graph-footer .graph-desktop-help { display: none; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .graph-details-jump { display: inline-flex; color: var(--sn-profile-title); }
+}
+
+@container skillnet-panel (width < 840px) {
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench>main,
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .site-header-inner { padding-inline: 14px; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .site-header-inner { gap: 8px; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .dataset-bar { position: relative; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .local-library-menu { position: static; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .library-menu-panel { left: 12px; max-width: calc(100% - 24px); }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .workspace { grid-template-columns: minmax(0, 1fr); }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .skill-panel { border-right: 0; border-bottom: 1px solid var(--sn-border); }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .graph-panel { border-bottom: 0; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .skill-list { max-height: 208px; }
+}
+
+@container skillnet-panel (width < 460px) {
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .site-header { height: auto; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .site-header-inner { flex-wrap: wrap; padding-block: 4px; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .brand,
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .brand img { width: 101px; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .brand { height: 44px; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .dsh-nav { flex-wrap: wrap; gap: 0; }
+  :where(body[data-ds-dark-theme]) .skillnet-shell .compact-workbench .dsh-nav button { padding-inline: 8px; }
 }
 
 /* Fluent's 4px ramp: component insets are distinct from gaps between components.
@@ -7600,6 +8186,43 @@ body[data-ds-dark-theme] .skillnet-shell {
   pointer-events: auto;
   scrollbar-width: thin;
 }
+.skillnet-shell .sn-select-menu.sn-select-searchable {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+.skillnet-shell .sn-select-search {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--sn-select-border);
+  border-radius: 7px;
+  color: var(--sn-select-muted);
+}
+.skillnet-shell .sn-select-search:focus-within { border-color: var(--sn-select-accent); }
+.skillnet-shell .sn-select-search>input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--sn-select-text);
+}
+.skillnet-shell .sn-select-searchable .sn-select-options {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.skillnet-shell .sn-select-empty {
+  padding: 6px 8px;
+  color: var(--sn-select-muted);
+}
 .skillnet-shell .sn-select-option {
   display: flex;
   align-items: center;
@@ -7659,7 +8282,6 @@ body[data-ds-dark-theme] .skillnet-shell {
 .skillnet-shell .dsh-create-model .dsh-model-label > span { display: none; }
 .skillnet-shell .dsh-create-model .dsh-model-choice .sn-select { max-width: min(420px, 100%); }
 .skillnet-shell .dsh-create-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
-.skillnet-shell .dsh-create-footer > span { color: var(--sn-readable-copy); font-size: 13px; }
 .skillnet-shell .dsh-page.dsh-create-page button { min-height: 36px; padding: 6px 12px; font-size: 14px; line-height: 22px; }
 .skillnet-shell .dsh-create-page .primary-button { border-radius: 6px; background: var(--sn-button, #078b6b); border-color: var(--sn-button, #078b6b); color: var(--sn-button-label, #fff); }
 .skillnet-shell .dsh-create-page .dsh-result { margin-top: 26px; padding: 0; border: 0; background: transparent; }
@@ -7668,7 +8290,6 @@ body[data-ds-dark-theme] .skillnet-shell {
 .skillnet-shell .dsh-create-draft > p { margin: 8px 0 14px; color: var(--sn-readable-copy); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
 .skillnet-shell .dsh-create-draft-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; color: var(--sn-readable-copy); font-size: 13px; }
 .skillnet-shell .dsh-create-draft-footer button { margin-left: auto; }
-.skillnet-shell .dsh-create-valid { color: var(--sn-profile-title); }
 .skillnet-shell .dsh-create-invalid { color: var(--sn-error, #a7503c); }
 @media (max-width: 700px) {
   .skillnet-shell .dsh-create-page { padding: 22px 16px 32px; }
@@ -7770,7 +8391,7 @@ function Panel({ onUseSkill, onAnalyze, onOpenAnalysis }) {
     /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { "aria-current": tab === "create" ? "page" : void 0, onClick: () => setTab("create"), children: "创建" }),
     /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { "aria-current": tab === "settings" ? "page" : void 0, onClick: () => setTab("settings"), children: "设置" })
   ] });
-  return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { "data-skillnet-build": "0.5.0-create-page.1", className: `skillnet-shell ${tab !== "workbench" ? "dsh-other-page" : ""}`, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { "data-skillnet-build": "0.5.0-workspace-title.1", className: `skillnet-shell ${tab !== "workbench" ? "dsh-other-page" : ""}`, children: [
     /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("style", { children: skillnet_styles_default }),
     /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(LibraryWorkbench, { logo: skillnet_logo_default, headerActions: navigation, active: tab === "workbench", target, onTarget: setTarget, onUseSkill, onAnalyze, onOpenAnalysis }),
     tab === "discover" && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(Catalog, { preview, target, clearPreview: () => setPreview(null) }),
@@ -7786,7 +8407,7 @@ function apply(ctx) {
     let timer;
     const report = async () => {
       try {
-        await api("client-ready", { revision: "0.5.0-create-page.1" }, AbortSignal.timeout(5e3));
+        await api("client-ready", { revision: "0.5.0-workspace-title.1" }, AbortSignal.timeout(5e3));
       } catch {
         if (!stopped) timer = setTimeout(report, 1500);
       }
@@ -7796,6 +8417,12 @@ function apply(ctx) {
       stopped = true;
       clearTimeout(timer);
     };
+  });
+  ctx.effect(() => {
+    const style = document.createElement("style");
+    style.textContent = '[data-conversation-session^="skillnet-analysis-"] [data-chat-flow-kind="turn-error"] { display: none; }';
+    document.head.append(style);
+    return () => style.remove();
   });
   void preloadWorkspace().catch(() => {
   });
@@ -7816,15 +8443,20 @@ lucide-react/dist/esm/icons/chevron-down.js:
 lucide-react/dist/esm/icons/circle-help.js:
 lucide-react/dist/esm/icons/file-text.js:
 lucide-react/dist/esm/icons/folder-git-2.js:
+lucide-react/dist/esm/icons/folder-open.js:
+lucide-react/dist/esm/icons/folder-plus.js:
 lucide-react/dist/esm/icons/git-branch.js:
 lucide-react/dist/esm/icons/info.js:
 lucide-react/dist/esm/icons/list-checks.js:
 lucide-react/dist/esm/icons/maximize-2.js:
 lucide-react/dist/esm/icons/orbit.js:
+lucide-react/dist/esm/icons/refresh-cw.js:
 lucide-react/dist/esm/icons/search.js:
+lucide-react/dist/esm/icons/settings-2.js:
 lucide-react/dist/esm/icons/share-2.js:
 lucide-react/dist/esm/icons/sliders-horizontal.js:
 lucide-react/dist/esm/icons/star.js:
+lucide-react/dist/esm/icons/unlink.js:
 lucide-react/dist/esm/icons/upload.js:
 lucide-react/dist/esm/icons/x.js:
 lucide-react/dist/esm/lucide-react.js:

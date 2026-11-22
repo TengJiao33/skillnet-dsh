@@ -75,7 +75,7 @@ export function CreatePage({ target, onTarget }: { target: ModelTarget, onTarget
         <p className="dsh-create-hint">{type === 'prompt' ? '例如：把 CSV 数据检查、论文图表绘制和 SVG 导出整理成一套可复用流程。' : type === 'trajectory' ? '保留有用的方法和注意事项，帮助技能复现这次任务的做法。' : type === 'conversation' ? '读取后请检查内容，保留希望复用的方法与经验。' : '从仓库中的已有方法与文档整理技能。'}</p>
         <details className="dsh-create-model"><summary><span>使用模型</span><strong>{modelLabel}</strong><span>更改</span></summary><ModelChoice value={target} onChange={onTarget} onLoad={setContexts} /></details>
       </fieldset>
-      <footer className="dsh-create-footer"><button type="submit" className="primary-button" disabled={locked || reading || !content.trim()}>{locked ? '正在生成…' : '生成技能草稿'}</button><span>生成后可预览，再确认安装到个人技能库。</span></footer>
+      <footer className="dsh-create-footer"><button type="submit" className="primary-button" disabled={locked || reading || !content.trim()}>{locked ? '正在生成…' : '生成技能草稿'}</button></footer>
     </form>
     {error && <p className="error-banner" role="alert">{error}</p>}
     <TaskList revision={revision} latestTaskId={latestTaskId} onlyAction="create" onRunningChange={setRunning} onSettled={task => setPendingTaskId(current => current === task.id ? null : current)} />

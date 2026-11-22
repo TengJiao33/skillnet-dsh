@@ -61,6 +61,13 @@ export function apply(ctx: any) {
     void report()
     return () => { stopped = true; clearTimeout(timer) }
   })
+  ctx.effect(() => {
+    const style = document.createElement('style')
+    // Keep native diagnostics in the trace for dedicated graph conversations.
+    style.textContent = '[data-conversation-session^="skillnet-analysis-"] [data-chat-flow-kind="turn-error"] { display: none; }'
+    document.head.append(style)
+    return () => style.remove()
+  })
   void preloadWorkspace().catch(() => {})
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: 'skillnet', order: 10, label: 'SkillNet' }, ({ size }: { size?: number }) => <SkillNetIcon size={size} />))
   ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'skillnet' }, () => <Panel onUseSkill={selection => openSkillDraft(ctx, selection)} onAnalyze={draft => openAnalysisDraft(ctx, draft)} onOpenAnalysis={sessionId => ctx.uiWorkspace.openSession(sessionId)} />))

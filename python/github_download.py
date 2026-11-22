@@ -2,6 +2,7 @@
 
 import stat
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urljoin, urlsplit
 from zipfile import BadZipFile, ZipFile
@@ -146,3 +147,54 @@ def download_skill(client, url, target_dir):
         return downloader.download(url, target_dir=target_dir, require_skill=True)
     finally:
         downloader.session.close()
+
+
+def check_sources(client, urls):
+    """Check the original revision without downloading or validating full packages."""
+    if not isinstance(urls, list) or len(urls) > 100 or any(not isinstance(url, str) for url in urls):
+        raise ValueError('技能来源列表无效。')
+    urls = list(dict.fromkeys(urls))
+    if not urls:
+        return []
+
+    def check(url):
+        downloader = GitHubDownloader(api_token=client.github_token)
+        # Suppress ambient .netrc credentials on public raw requests. Explicit
+        # GitHub credentials below stay on the API host, as in the downloader.
+        downloader.session.auth = lambda request: request
+        try:
+            try:
+                owner, repo, ref, directory, _ = downloader._parse_github_url(url)
+            except ValueError:
+                return 'missing'
+            file = f'{directory}/SKILL.md' if directory else 'SKILL.md'
+            headers = {'Accept': 'application/vnd.github+json'}
+            if client.github_token:
+                headers['Authorization'] = f'Bearer {client.github_token}'
+            else:
+                raw = (f'https://raw.githubusercontent.com/{quote(owner, safe="")}/'
+                       f'{quote(repo, safe="")}/{quote(ref, safe="")}/{quote(file, safe="/")}')
+                with downloader.session.get(raw, timeout=(2, 3), allow_redirects=False, stream=True) as response:
+                    if response.status_code == 200:
+                        return 'available'
+                    if response.status_code not in (404, 410):
+                        return 'unknown'
+            # Confirm missing raw files against the actual contents API used by
+            # downloads. A redirect or a transient/permission error stays unknown.
+            api = downloader._contents_url(owner, repo, ref, file)
+            with downloader.session.get(api, headers=headers, timeout=(2, 3),
+                                        allow_redirects=False, stream=True) as response:
+                if response.status_code == 200:
+                    return 'available'
+                return 'missing' if response.status_code in (404, 410) else 'unknown'
+        except requests.RequestException:
+            return 'unknown'
+        finally:
+            downloader.session.close()
+
+    pool = ThreadPoolExecutor(max_workers=6)
+    futures = {url: pool.submit(check, url) for url in urls}
+    done, _ = wait(futures.values(), timeout=12)
+    pool.shutdown(wait=False, cancel_futures=True)
+    return [{'url': url, 'status': future.result() if future in done else 'unknown'}
+            for url, future in futures.items()]

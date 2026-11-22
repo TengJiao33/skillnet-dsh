@@ -1,1 +1,1 @@
-export const BUILD_REVISION = '0.5.0-create-page.1';
+export const BUILD_REVISION = '0.5.0-workspace-title.1';

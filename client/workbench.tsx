@@ -60,7 +60,7 @@ function UseSkillDialog({ selection, onClose, onUseSkill }: { selection: UseSele
       {!loading && !sessions.length && <p role="status">请先在 DSH 新建或打开一个对话。</p>}
       <p>保留对话中已有的输入，添加技能后可继续编辑再发送。</p>
       {error && <p role="alert">{error}</p>}
-      {preview && <button type="button" onClick={() => { window.dispatchEvent(new CustomEvent('skillnet-preview', { detail: preview })); dialog.current?.close() }}>预览并安装</button>}
+      {preview && <button type="button" onClick={() => { window.dispatchEvent(new CustomEvent('skillnet-preview', { detail: { ...preview, installToPersonal: true } })); dialog.current?.close() }}>预览并安装</button>}
       <footer className="dsh-row"><button type="submit" disabled={!sessionId || loading || busy}>{busy ? '正在添加…' : '添加到对话'}</button></footer>
     </form>
   </dialog>
@@ -101,32 +101,44 @@ function ModelOperationDialog({ context, target, disabled, onClose, onConfirm }:
   </dialog>
 }
 
-function AnalysisProgress({ context, active, onOpen }: { context: WorkbenchContext, active: boolean, onOpen: (sessionId: string) => void }) {
+function useAnalysisStatus(active: boolean, sourcePath?: string) {
   const [state, setState] = useState<any>(null)
-  const completed = useRef('')
-  const refresh = useRef(context.refresh)
-  refresh.current = context.refresh
   useEffect(() => {
-    if (!active || !context.library) return
+    if (!active || !sourcePath) return
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout>
     const poll = async () => {
       try {
-        const next = await api('analysis-status', { sourcePath: context.library!.sourcePath }, controller.signal)
+        const next = await api('analysis-status', { sourcePath }, controller.signal)
         if (controller.signal.aborted) return
         setState(next)
-        if (next?.status === 'completed' && completed.current !== next.sessionId) { completed.current = next.sessionId; refresh.current() }
       } catch { /* A temporarily unavailable host does not erase the graph. */ }
       if (!controller.signal.aborted) timer = setTimeout(poll, 2500)
     }
     void poll()
     return () => { controller.abort(); clearTimeout(timer) }
-  }, [active, context.library?.sourcePath])
-  if (!state || state.status === 'completed') return null
-  return <div className="dsh-row dsh-context-result" role="status">
-    <span>{state.status === 'draft' ? '建图草稿已准备，发送后开始。' : `已校验 ${state.progress?.profiles || 0}/${state.progress?.skills || 0} 项画像${state.progress?.candidates != null ? `、${state.progress.relations}/${state.progress.candidates} 对关系` : ''}；可在对话中继续。`}</span>
-    <button type="button" onClick={() => onOpen(state.sessionId)}>打开建图对话</button>
-  </div>
+  }, [active, sourcePath])
+  return state
+}
+
+function GraphAction({ context, active, busy, onStart, onOpen }: {
+  context: WorkbenchContext, active: boolean, busy: boolean, onStart: () => void, onOpen: (sessionId: string) => void
+}) {
+  const state = useAnalysisStatus(active, context.library?.sourcePath)
+  const completed = useRef('')
+  useEffect(() => {
+    if (state?.status === 'completed' && completed.current !== state.sessionId) {
+      completed.current = state.sessionId
+      context.refresh()
+    }
+  }, [state?.sessionId, state?.status, context.refresh])
+  const running = state?.status === 'running'
+  return <button type="button" className="dsh-workbench-action dsh-graph-action"
+    title={running ? '打开建图对话' : '检查本次更新，有变化时准备建图草稿'}
+    disabled={busy || (!running && !context.localData?.source.skills.length)} onClick={running ? () => onOpen(state.sessionId) : onStart}>
+    <Share2 size={18} strokeWidth={1.8} aria-hidden="true" />
+    {busy ? '正在检查…' : running ? '建图中' : context.localData?.analysis ? '更新图谱' : '建图'}
+  </button>
 }
 
 export function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUseSkill, onAnalyze, onOpenAnalysis }: { logo: string, headerActions: ReactNode, active: boolean, target: ModelTarget, onTarget: (value: ModelTarget) => void, onUseSkill: (selection: SkillDraft) => void, onAnalyze: (draft: AnalysisDraft) => void, onOpenAnalysis: (sessionId: string) => void }) {
@@ -136,6 +148,7 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
   const [running, setRunning] = useState<Record<string, boolean>>({})
   const starting = useRef(new Set<string>())
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [notices, setNotices] = useState<Record<string, string>>({})
   const [modelsOpen, setModelsOpen] = useState(false)
   const [useSelection, setUseSelection] = useState<UseSelection | null>(null)
   const [confirmation, setConfirmation] = useState<{ context: WorkbenchContext, action: 'evaluate' } | null>(null)
@@ -143,10 +156,12 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
     if (!context.library) return
     const key = jobKey(context, action)
     if (starting.current.has(key)) return
-    starting.current.add(key); setBusy(value => ({ ...value, [key]: true })); setErrors(value => ({ ...value, [key]: '' }))
+    starting.current.add(key); setBusy(value => ({ ...value, [key]: true })); setErrors(value => ({ ...value, [key]: '' })); setNotices(value => ({ ...value, [key]: '' }))
     try {
       if (action === 'analyze') {
         const draft = await api('analysis-draft', { ...target, sourcePath: context.library.sourcePath, retrievalMode })
+        if (draft.upToDate) { setNotices(value => ({ ...value, [key]: draft.message })); return }
+        if (draft.alreadyRunning) { onOpenAnalysis(draft.sessionId); return }
         onAnalyze(draft)
         return
       }
@@ -178,8 +193,9 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
           <p>{retrievalMode === 'vector' ? '需要配置向量模型，并用此模式建图。' : '使用所选 DSH 模型建图，无需向量配置。'}</p>
         </div>
       </details>}
-      renderGraphActions={context => context.library && <button type="button" className="dsh-workbench-action dsh-graph-action" title="打开新对话，发送草稿后开始" disabled={busy[jobKey(context, 'analyze')] || !context.localData?.source.skills.length} onClick={() => void start(context, 'analyze')}><Share2 size={18} strokeWidth={1.8} aria-hidden="true" />{busy[jobKey(context, 'analyze')] ? '正在打开…' : context.localData?.analysis ? '更新图谱' : '建图'}</button>}
-      renderGraphResult={context => context.library && <>{errors[jobKey(context, 'analyze')] && <p className="error-banner" role="alert">{errors[jobKey(context, 'analyze')]}</p>}<AnalysisProgress context={context} active={active} onOpen={onOpenAnalysis} /></>}
+      renderGraphActions={context => context.library && <GraphAction key={context.library.id} context={context} active={active}
+        busy={!!busy[jobKey(context, 'analyze')]} onStart={() => void start(context, 'analyze')} onOpen={onOpenAnalysis} />}
+      renderGraphResult={context => context.library && <>{errors[jobKey(context, 'analyze')] && <p className="error-banner" role="alert">{errors[jobKey(context, 'analyze')]}</p>}{notices[jobKey(context, 'analyze')] && <p className="dsh-context-result" role="status">{notices[jobKey(context, 'analyze')]}</p>}</>}
       renderSkillActions={context => context.library && context.selectedSkill && <div className="dsh-skill-actions" role="group" aria-label="当前技能操作">
         <button className="dsh-workbench-action" aria-label="使用此技能" title="在 DSH 对话中使用" disabled={!context.localData?.source.skills.some(skill => skill.id === context.selectedSkill!.id)} onClick={() => setUseSelection({ sourcePath: context.library!.sourcePath, skillId: context.selectedSkill!.id, names: [context.selectedSkill!.name] })}><ArrowUpRight size={18} strokeWidth={1.8} aria-hidden="true" />使用</button>
       </div>}

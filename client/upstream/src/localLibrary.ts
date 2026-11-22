@@ -6,6 +6,7 @@ export interface LocalLibrary {
   name: string
   sourcePath: string
   indexPath?: string
+  managed?: boolean
 }
 
 export interface LocalLibraryData {
@@ -38,8 +39,8 @@ export function unifiedLibrary(data: LocalLibraryData): Dataset {
   }) }
 }
 
-async function localRequest(body: object, signal?: AbortSignal): Promise<unknown> {
-  const response = await fetch((body as { action?: string }).action === 'create-default' ? 'api/skillnet/workspace-create' : 'api/skillnet/workspace-read', {
+async function localRequest(action: 'create' | 'read', body: object, signal?: AbortSignal): Promise<unknown> {
+  const response = await fetch(`api/skillnet/workspace-${action}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -66,9 +67,13 @@ export async function initialLibraryPath(): Promise<string | null> {
   }
 }
 
-export async function createDefaultLibrary(): Promise<string> {
-  const value = (await localRequest({ action: 'create-default' })) as { sourcePath: string }
+export async function createDefaultLibrary(signal: AbortSignal): Promise<string> {
+  const value = (await localRequest('create', {}, signal)) as { sourcePath: string }
   return value.sourcePath
+}
+
+export async function createNamedLibrary(name: string, signal: AbortSignal) {
+  return parseLocalResponse(await localRequest('create', { name }, signal) as LocalResponse)
 }
 
 export async function readLocalLibrary(
@@ -76,12 +81,15 @@ export async function readLocalLibrary(
   signal?: AbortSignal,
   analysisLocation?: { indexPath: string | null },
 ): Promise<LocalLibraryData> {
-  const value = (await localRequest(
+  return parseLocalResponse(await localRequest('read',
     // Normal reads restore the backend connection. Only a user changing the
     // analysis location should submit and validate a new index path.
     { sourcePath: library.sourcePath, ...analysisLocation },
     signal,
-  )) as LocalResponse
+  ) as LocalResponse)
+}
+
+function parseLocalResponse(value: LocalResponse): LocalLibraryData {
   if (!value.source || !Array.isArray(value.source.skills))
     throw new Error("技能库返回的数据格式不正确。")
   let analysis: Dataset | null = null
@@ -92,7 +100,7 @@ export async function readLocalLibrary(
     analysisError = error instanceof Error ? error.message : "分析快照格式不正确。"
   }
   return {
-    connection: (value as any).connection ? { ...(value as any).connection, id: `local:${(value as any).connection.id}` } : undefined,
+    connection: value.connection ? { ...value.connection, id: `local:${value.connection.id}` } : undefined,
     source: value.source,
     analysis,
     analysisRevision: value.analysisRevision || null,

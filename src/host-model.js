@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 const textBlocks = message => (message.content || []).filter(block => block.type === 'text').map(block => block.text).join('\n');
 const plain = value => String(value).replace(/\bBearer\s+[\w.\-]+/gi, 'Bearer [已隐藏]').replace(/\bsk-[\w-]+/g, '[已隐藏]').replace(/((?:api[_ -]?key|access[_ -]?token|authorization|password)\s*["']?\s*[:=]\s*["']?)[^\s"',}]+/gi, '$1[已隐藏]');
 // DSH inboxes accept complete, identified messages, not bare content payloads.
-const userMessage = text => ({ id: randomUUID(), role: 'user', content: [{ type: 'text', text }], source: { kind: 'user' } });
+export const userMessage = text => ({ id: randomUUID(), role: 'user', content: [{ type: 'text', text }], source: { kind: 'user' } });
 
 export function createHostModel(ctx) {
   const owned = new Set();

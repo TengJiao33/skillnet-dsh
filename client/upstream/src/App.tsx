@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Dataset, Skill } from './data'
 import type { LocalLibrary, LocalLibraryData } from './localLibrary'
-import { ArrowRight, CircleHelp, GitBranch, Search, Upload, X } from 'lucide-react'
+import { ArrowRight, ChevronDown, CircleHelp, FolderOpen, FolderPlus, GitBranch, RefreshCw, Search, Settings2, Unlink, Upload, X } from 'lucide-react'
 import { relationLabel } from './data'
 import { SkillInspector, RelationInspector, SourceDialog } from './Inspectors'
-import { useWorkspace } from './useWorkspace'
+import { hasCustomAnalysisDirectory, useWorkspace } from './useWorkspace'
 import { GraphView } from './GraphView'
 import { firstConnectedSkill } from './selection'
 import { Select } from '../../Select'
@@ -13,6 +13,29 @@ import './styles.css'
 
 function compactNumber(value: number) {
   return new Intl.NumberFormat("zh-CN").format(value)
+}
+
+function NewLibraryDialog({ loading, error, onCreate, onClose }: {
+  loading: boolean, error: string | null, onCreate: (name: string) => void, onClose: () => void
+}) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const [name, setName] = useState('')
+  useEffect(() => { dialog.current?.showModal() }, [])
+  return <dialog ref={dialog} className="dsh-use-dialog dsh-new-library-dialog" aria-labelledby="skillnet-new-library-heading"
+    onClose={onClose} onCancel={event => { if (loading) event.preventDefault() }}>
+    <form onSubmit={event => { event.preventDefault(); if (!loading && name.trim()) onCreate(name) }}>
+      <h2 id="skillnet-new-library-heading">新建技能库</h2>
+      <label className="dsh-destination">
+        <span>技能库名称</span>
+        <input autoFocus required maxLength={60} value={name} disabled={loading} onChange={event => setName(event.target.value)} placeholder="例如：论文工具" />
+      </label>
+      {error && <p role="alert">{error}</p>}
+      <footer className="dsh-row">
+        <button type="button" disabled={loading} onClick={() => dialog.current?.close()}>取消</button>
+        <button type="submit" className="dsh-new-library-submit" disabled={loading || !name.trim()}>{loading ? '正在创建…' : '创建'}</button>
+      </footer>
+    </form>
+  </dialog>
 }
 
 export interface WorkbenchContext {
@@ -50,12 +73,15 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
     openLocalLibrary,
     connectLocalLibrary,
     createPersonalLibrary,
+    createLibrary,
     updateIndex,
     forgetLocalLibrary,
     importFile,
     removeImport,
     changeLibrary,
   } = useWorkspace()
+  const [newLibrary, setNewLibrary] = useState(false)
+  const libraryMenu = useRef<HTMLDetailsElement>(null)
   const [sourcePathInput, setSourcePathInput] = useState('')
   const [indexPathInput, setIndexPathInput] = useState('')
   const [selectedRelationId, setSelectedRelationId] = useState<string | null>(null)
@@ -68,6 +94,7 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
   const fileInput = useRef<HTMLInputElement>(null)
   const skillList = useRef<HTMLDivElement>(null)
   const graphCanvas = useRef<HTMLDivElement>(null)
+  const detailPanel = useRef<HTMLElement>(null)
 
   useEffect(() => {
     setSelectedRelationId(null)
@@ -175,16 +202,16 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
     if (row && rows[0]) list.scrollTop = Math.max(0, row.offsetTop - rows[0].offsetTop)
   }, [selectedSkillId, dataset, filteredSkills])
   useEffect(() => {
+    const canvas = graphCanvas.current
+    if (!canvas) return
     const centerGraph = () => {
-      const canvas = graphCanvas.current
-      if (canvas && window.matchMedia('(max-width: 760px)').matches) {
-        canvas.scrollLeft = (canvas.scrollWidth - canvas.clientWidth) / 2
-      }
+      canvas.scrollLeft = (canvas.scrollWidth - canvas.clientWidth) / 2
     }
     centerGraph()
-    window.addEventListener('resize', centerGraph)
-    return () => window.removeEventListener('resize', centerGraph)
-  }, [selectedSkillId, depth, dataset])
+    const observer = new ResizeObserver(centerGraph)
+    observer.observe(canvas)
+    return () => observer.disconnect()
+  }, [selectedSkillId, depth, dataset, viewMode, relationDataset.kind])
 
   const selectSkill = (id: string) => {
     if (!dataset.skills.some(skill => skill.id === id)) {
@@ -207,6 +234,7 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
     localData?.source.skills.length === 0 && !localData.analysis
   const showWorkbench = !restoring && collection !== 'personal' && !emptyLocalLibrary
   const currentLibrary = localLibraries.find((item) => item.id === collection)
+  const analysisLibrary = currentLibrary && (!compactControls || hasCustomAnalysisDirectory(currentLibrary)) ? currentLibrary : undefined
   const workbenchContext: WorkbenchContext = { library: currentLibrary, localData, dataset, selectedSkill, selectSkill,
     refresh: () => { if (currentLibrary) void openLocalLibrary(currentLibrary) } }
 
@@ -238,6 +266,7 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
               <Select
                 value={currentLibrary?.id || ''}
                 aria-label="技能库"
+                searchPlaceholder={compactControls && localLibraries.length > 5 ? '搜索技能库' : undefined}
                 disabled={loading || restoring}
                 onValueChange={changeLibrary}
               >
@@ -248,10 +277,45 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
                 ))}
               </Select>
             </label>
-            <details className="local-library-menu">
-                <summary>{compactControls ? '管理' : '目录管理'}</summary>
-                <div>
-                  {compactControls && <button type="button" onClick={() => fileInput.current?.click()}>导入图谱</button>}
+            <details className="local-library-menu" ref={libraryMenu}>
+              <summary>{compactControls ? '管理' : '目录管理'}</summary>
+              <div className="library-menu-panel">
+                {currentLibrary && (
+                  <div className="library-menu-location">
+                    <div className="library-menu-location-header">
+                      <span>当前目录</span>
+                      <button type="button" className="library-menu-refresh" aria-label="刷新技能库" onClick={() => void openLocalLibrary(currentLibrary)}>
+                        <RefreshCw size={14} aria-hidden="true" />刷新
+                      </button>
+                    </div>
+                    <code>{currentLibrary.sourcePath}</code>
+                  </div>
+                )}
+                <div className="library-menu-group">
+                  <button type="button" className="library-menu-primary" onClick={() => { setError(null); setNewLibrary(true) }}>
+                    <FolderPlus size={16} aria-hidden="true" />新建技能库
+                  </button>
+                  {collection === 'personal' && (
+                    <button type="button" onClick={() => void createPersonalLibrary()}>
+                      <FolderOpen size={16} aria-hidden="true" />连接 DSH 个人技能库
+                    </button>
+                  )}
+                  <details className="library-menu-disclosure">
+                    <summary><FolderOpen size={16} aria-hidden="true" />连接已有目录<ChevronDown size={14} aria-hidden="true" /></summary>
+                    <form onSubmit={event => { event.preventDefault(); if (sourcePathInput.trim()) addLocalLibrary() }}>
+                      <label>
+                        技能目录路径
+                        <input
+                          value={sourcePathInput}
+                          onChange={event => setSourcePathInput(event.target.value)}
+                          placeholder="技能目录的绝对路径"
+                        />
+                      </label>
+                      <button type="submit" disabled={!sourcePathInput.trim()}>连接技能库</button>
+                    </form>
+                  </details>
+                </div>
+                {(analysisLibrary || importedDatasets.length > 0) && <div className="library-menu-group">
                   {importedDatasets.length > 0 && (
                     <label>
                       已导入图谱
@@ -260,53 +324,44 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
                       </Select>
                     </label>
                   )}
-                  {collection === 'personal' && <button type="button" onClick={() => void createPersonalLibrary()}>连接 DSH 个人技能库</button>}
-                  {compactControls && collection.startsWith('imported:') && <button type="button" onClick={() => void removeImport()}>移除快照</button>}
-                  <label>
-                    技能目录路径
-                    <input
-                      value={sourcePathInput}
-                      onChange={(event) => setSourcePathInput(event.target.value)}
-                      placeholder="技能目录的绝对路径"
-                    />
-                  </label>
-                  <button type="button" onClick={addLocalLibrary}>
-                    连接技能库
-                  </button>
-                  {currentLibrary && (
-                    <>
-                      <p className="local-path">当前目录： {currentLibrary.sourcePath}</p>
-                      <button type="button" onClick={() => void openLocalLibrary(currentLibrary)}>
-                        刷新技能库
-                      </button>
-                      <label>
-                        自定义分析目录
-                        <input
-                          value={indexPathInput}
-                          onChange={(event) => setIndexPathInput(event.target.value)}
-                          placeholder={currentLibrary.indexPath ?? "默认：.skillnet"}
-                        />
-                      </label>
-                      {currentLibrary.indexPath && (
-                        <p className="local-path">分析目录： {currentLibrary.indexPath}</p>
-                      )}
-                      <button type="button" onClick={() => void setLocalIndex()}>
-                        连接分析目录
-                      </button>
-                      {currentLibrary.indexPath && (
-                        <button type="button" onClick={() => void useDefaultIndex()}>
-                          使用默认分析目录
-                        </button>
-                      )}
-                      <button type="button" onClick={() => void forgetLocalLibrary()}>
-                        断开技能库
-                      </button>
-                    </>
+                  {compactControls && collection.startsWith('imported:') && <button className="library-menu-disconnect" type="button" onClick={() => void removeImport()}>移除快照</button>}
+                  {analysisLibrary && (
+                    <details className="library-menu-disclosure">
+                      <summary><Settings2 size={16} aria-hidden="true" />分析目录<ChevronDown size={14} aria-hidden="true" /></summary>
+                      <form onSubmit={event => { event.preventDefault(); setLocalIndex() }}>
+                        {analysisLibrary.indexPath && (
+                          <div className="library-menu-location">
+                            <span>当前分析目录</span>
+                            <code>{analysisLibrary.indexPath}</code>
+                          </div>
+                        )}
+                        <label>
+                          自定义分析目录
+                          <input
+                            value={indexPathInput}
+                            onChange={event => setIndexPathInput(event.target.value)}
+                            placeholder="分析目录的绝对路径"
+                          />
+                        </label>
+                        <div className="library-menu-form-actions">
+                          <button type="submit" disabled={!indexPathInput.trim()}>连接分析目录</button>
+                          {analysisLibrary.indexPath && <button type="button" onClick={useDefaultIndex}>使用默认分析目录</button>}
+                        </div>
+                      </form>
+                    </details>
                   )}
-                </div>
+                </div>}
+                {currentLibrary && (
+                  <div className="library-menu-group">
+                    <button type="button" className="library-menu-disconnect" onClick={() => void forgetLocalLibrary()}>
+                      <Unlink size={16} aria-hidden="true" />断开技能库
+                    </button>
+                  </div>
+                )}
+              </div>
             </details>
             {renderOptions?.(workbenchContext)}
-            <div className="dataset-actions">
+            {!compactControls && <div className="dataset-actions">
               <button
                 type="button"
                 className="primary-button"
@@ -337,7 +392,7 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
                   void importFile(file)
                 }}
               />
-            </div>
+            </div>}
             {!compactControls && collection !== 'personal' && !emptyLocalLibrary && (
               <div className="dataset-summary" aria-label="数据概况">
                 {dataset.kind === 'source' ? (
@@ -382,7 +437,13 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
             ))}
           </details>
         )}
-        {error && (
+        {newLibrary && <NewLibraryDialog loading={loading} error={error} onClose={() => { setNewLibrary(false); setError(null) }} onCreate={async name => {
+          if (await createLibrary(name)) {
+            setNewLibrary(false)
+            if (libraryMenu.current) libraryMenu.current.open = false
+          }
+        }} />}
+        {error && !newLibrary && (
           <div className="error-banner" role="alert">
             <CircleHelp size={18} /> {error}
             <button type="button" onClick={() => setError(null)} aria-label="关闭错误提示">
@@ -404,19 +465,14 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
           <fieldset className="dataset-controls" disabled={loading}>
             <section className="onboarding" aria-label="空技能库">
               <div className="onboarding-intro">
-                <span>本地技能库</span>
                 <h1>目录中还没有技能</h1>
-                <p>
-                  目录已连接。添加技能后，点击“刷新技能库”。
-                </p>
+                <p>{currentLibrary?.managed ? '可从“发现”安装技能，也可手动添加。' : '添加技能后，点击刷新。'}</p>
               </div>
               <div className="onboarding-empty-path">
                 <strong>技能目录</strong>
                 <code>{currentLibrary?.sourcePath}</code>
               </div>
               <div className="onboarding-next">
-                <h2>添加技能</h2>
-                <p>从“发现”安装技能，或从“创建”生成草稿。添加后刷新技能库，再点击“建图 / 更新图谱”。</p>
                 <button
                   type="button"
                   className="primary-button"
@@ -574,7 +630,7 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
                     </label>
                     {viewMode === 'graph' && (
                       <span className="graph-limit">
-                        {relationDataset.relations.length ? <>最多显示 {depth === 1 ? 10 : 16} 个相邻技能，全部关系可在列表中查看</> : '暂无已识别关系'}
+                        {relationDataset.relations.length ? <>最多 {depth === 1 ? 10 : 16} 个相邻技能，全部关系见列表</> : '暂无已识别关系'}
                       </span>
                     )}
                   </div>
@@ -661,16 +717,17 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
                         ? "点击节点或连线查看详情"
                         : "点击关系查看场景与证据"}
                     </span>
-                    <span className="graph-mobile-help">
-                      {viewMode === 'graph'
-                        ? "滑动查看网图，点击节点或连线查看详情"
-                        : "点击关系查看场景与证据"}
-                    </span>
+                    {compactControls ? <button type="button" className="text-button graph-details-jump" onClick={() => {
+                      detailPanel.current?.scrollIntoView({ block: 'start' })
+                      detailPanel.current?.focus({ preventScroll: true })
+                    }}>查看详情</button> : <span className="graph-mobile-help">
+                      {viewMode === 'graph' ? '滑动查看网图，点击节点或连线查看详情' : '点击关系查看场景与证据'}
+                    </span>}
                   </div>
                 )}
               </div>
 
-              <aside className="detail-panel">
+              <aside className="detail-panel" ref={detailPanel} tabIndex={-1} aria-label={selectedRelation ? '关系详情' : '技能详情'}>
                 <div className="panel-title">
                   <strong>{selectedRelation ? "关系详情" : "技能详情"}</strong>
                 </div>

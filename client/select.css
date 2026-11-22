@@ -74,6 +74,43 @@ body[data-ds-dark-theme] .skillnet-shell {
   pointer-events: auto;
   scrollbar-width: thin;
 }
+.skillnet-shell .sn-select-menu.sn-select-searchable {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+.skillnet-shell .sn-select-search {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--sn-select-border);
+  border-radius: 7px;
+  color: var(--sn-select-muted);
+}
+.skillnet-shell .sn-select-search:focus-within { border-color: var(--sn-select-accent); }
+.skillnet-shell .sn-select-search>input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--sn-select-text);
+}
+.skillnet-shell .sn-select-searchable .sn-select-options {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.skillnet-shell .sn-select-empty {
+  padding: 6px 8px;
+  color: var(--sn-select-muted);
+}
 .skillnet-shell .sn-select-option {
   display: flex;
   align-items: center;

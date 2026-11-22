@@ -119,7 +119,7 @@ export function TaskList({ revision, latestTaskId, sourcePath, onlyAction, skill
       {detail.result?.drafts?.map((draft: any) => <article className="dsh-create-draft" key={draft.name}>
         <h3>{draft.metadata?.name || draft.name}</h3>
         {typeof draft.metadata?.description === 'string' && <p>{draft.metadata.description}</p>}
-        <div className="dsh-create-draft-footer"><span>{Array.isArray(draft.files) ? `${draft.files.length} 个文件` : ''}</span><span className={draft.validation?.valid ? 'dsh-create-valid' : 'dsh-create-invalid'}>{draft.validation?.valid ? '结构校验通过' : '结构校验未通过'}</span><button type="button" disabled={Boolean(previewing)} onClick={() => void previewDraft(detail.id, draft.name)}>{previewing === draft.name ? '正在打开…' : '查看草稿'}</button></div>
+        <div className="dsh-create-draft-footer">{draft.validation?.valid === false && <span className="dsh-create-invalid">结构校验未通过</span>}<button type="button" disabled={Boolean(previewing)} onClick={() => void previewDraft(detail.id, draft.name)}>{previewing === draft.name ? '正在打开…' : '查看草稿'}</button></div>
       </article>)}
       {detail.result?.warning && <p role="alert">{detail.result.warning}</p>}
       {detail.action === 'analyze' && detail.result && <div><p>已分析 {detail.result.skill_count} 个技能</p><div className="dsh-row"><span>可组合 {detail.result.relation_counts?.compose_with || 0}</span><span>相似 {detail.result.relation_counts?.similar_to || 0}</span><button onClick={() => complete.current?.(detail)}>查看关系图</button></div>{!compact && <p className="dsh-path">{detail.result.index_dir}</p>}</div>}

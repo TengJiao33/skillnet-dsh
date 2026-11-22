@@ -65,9 +65,16 @@ def execute(request):
         data['warnings'] = [chinese_message(item) for item in data['warnings']]
         return data
     client = SkillNetClient()
+    if action == 'source-status':
+        from github_download import check_sources
+
+        return check_sources(client, request.get('urls', []))
     if action == 'analysis-step':
         from conversation_analysis import execute as analysis_step
         return analysis_step(request, client)
+    if action == 'analysis-plan':
+        from conversation_analysis import plan as analysis_plan
+        return analysis_plan(request, client)
     if action in ('analyze', 'route') and request.get('retrievalMode', 'model') not in ('model', 'vector'):
         raise ValueError('请选择仅使用模型或向量检索模式。')
     if action == "analyze":

@@ -1,4 +1,4 @@
-import { cp, lstat, mkdir, readFile, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, readFile, readdir, realpath, rename, rm, rmdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -8,6 +8,35 @@ const validId = value => typeof value === 'string' && /^[0-9a-f-]{36}$/.test(val
 const validName = value => typeof value === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 const exists = async path => { try { return await lstat(path); } catch (error) { if (error.code === 'ENOENT') return null; throw error; } };
 const samePath = (a, b) => process.platform === 'win32' ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b);
+
+function libraryFolderName(name) {
+  const safe = name.normalize('NFC').replace(/[<>:"/\\|?*\x00-\x1f]+/g, '-').replace(/[ .]+$/, '') || '技能库';
+  const reserved = /^(?:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|(?:COM|LPT)[1-9¹²³])$/i;
+  return reserved.test(safe.split('.', 1)[0].trimEnd()) ? '_' + safe : safe;
+}
+
+export async function managedLibraryInfo(home, path) {
+  const folder = dirname(path);
+  if (!samePath(path, join(folder, 'skills'))) return null;
+  const base = await realpath(home).catch(error => {
+    if (error.code !== 'ENOENT') throw error;
+    return null;
+  });
+  if (!base || !samePath(dirname(folder), join(base, 'skillnet', 'libraries'))) return null;
+  const manifest = join(folder, 'library.json');
+  const info = await exists(manifest);
+  if (info) {
+    if (!info.isFile()) throw new Error('独立技能库记录无效。');
+    const { id, name } = JSON.parse(await readFile(manifest, 'utf8'));
+    if (!validId(id) || typeof name !== 'string' || !name.trim()) throw new Error('独立技能库记录无效。');
+    return { id, name };
+  }
+  // Libraries created before named folders store the ID in the directory name.
+  const id = basename(folder);
+  const previousName = join(folder, 'name.txt');
+  if (!validId(id) || !(await exists(previousName))?.isFile()) return null;
+  return { id, name: await readFile(previousName, 'utf8') };
+}
 
 export async function projectRoot(path) {
   if (typeof path !== 'string' || !isAbsolute(path)) throw new Error('请选择项目的绝对目录路径。');
@@ -45,6 +74,37 @@ export function createLibrary(run, skills, config = {}) {
     queue = result.catch(() => {});
     return result;
   };
+  async function createManaged(name) {
+    const id = randomUUID();
+    const root = await directory(home, 'skillnet', 'libraries');
+    const base = libraryFolderName(name);
+    let folder = join(root, base);
+    for (let suffix = 2; ; suffix++) {
+      try { await mkdir(folder); break; }
+      catch (error) {
+        if (error.code !== 'EEXIST') throw error;
+        folder = join(root, base + '-' + suffix);
+      }
+    }
+    const path = join(folder, 'skills');
+    try {
+      await mkdir(path);
+      await writeFile(join(folder, 'library.json'), JSON.stringify({ id, name }, null, 2), { flag: 'wx' });
+      return path;
+    } catch (error) {
+      await rmdir(path).catch(() => {});
+      await rmdir(folder).catch(() => {});
+      throw error;
+    }
+  }
+  async function managedPath(id, path) {
+    if (!validId(id) || typeof path !== 'string' || !isAbsolute(path)) throw new Error('独立技能库标识无效。');
+    if (!samePath(await realpath(path), path) || !(await lstat(path)).isDirectory() ||
+      (await managedLibraryInfo(home, path))?.id !== id) {
+      throw new Error('独立技能库的目录已改变，请重新连接。');
+    }
+    return path;
+  }
   async function save(kind, id, value) {
     const root = await directory(home, 'skillnet', kind);
     const temporary = join(root, `${id}.${randomUUID()}.tmp`);
@@ -58,8 +118,9 @@ export function createLibrary(run, skills, config = {}) {
   }
   async function recordPath(record) {
     if (!validName(record.name)) throw new Error('无效的技能名称。');
-    const base = record.scope === 'user' ? home : await projectRoot(record.projectRoot);
-    const root = record.scope === 'user' ? await directory(base, 'skills') : await directory(base, '.dsh', 'skills');
+    const root = await installRoot(record.scope === 'project'
+      ? { ...record, projectRoot: await projectRoot(record.projectRoot) }
+      : record);
     const path = join(root, record.name);
     if (!samePath(path, record.path)) throw new Error('安装记录与实际目录不一致，已停止操作。');
     const info = await exists(path);
@@ -67,10 +128,9 @@ export function createLibrary(run, skills, config = {}) {
     return path;
   }
   async function removedPath(record) {
-    const base = record.scope === 'user' ? home : await projectRoot(record.projectRoot);
-    const root = record.scope === 'user'
-      ? await directory(base, 'skillnet', 'removed', record.id)
-      : await directory(base, '.dsh', 'skillnet-removed', record.id);
+    const root = record.scope === 'project'
+      ? await directory(await projectRoot(record.projectRoot), '.dsh', 'skillnet-removed', record.id)
+      : await directory(home, 'skillnet', 'removed', record.id);
     return join(root, record.name);
   }
   async function reconcile(record) {
@@ -127,20 +187,25 @@ export function createLibrary(run, skills, config = {}) {
       return { ...detail, catalog, previewId: id };
     } catch (error) { await rm(root, { recursive: true, force: true }); throw error; }
   }
+  async function installRoot({ scope, managedId, sourcePath, path, projectRoot: project }) {
+    if (scope === 'user') return directory(home, 'skills');
+    if (scope === 'project') return directory(project, '.dsh', 'skills');
+    return managedPath(managedId, sourcePath ?? (path && dirname(path)));
+  }
   async function install(args, signal) {
     return mutate(async () => {
       const preview = await load('previews', args.previewId);
       if (!validName(preview.name)) throw new Error('技能名称无效。');
-      if (!['user', 'project'].includes(args.scope)) throw new Error('请选择个人或项目安装范围。');
+      if (!['user', 'project', 'managed'].includes(args.scope)) throw new Error('请选择技能安装位置。');
       const project = args.scope === 'project' ? await projectRoot(args.projectPath) : null;
-      const parent = args.scope === 'user' ? await directory(home, 'skills') : await directory(project, '.dsh', 'skills');
+      const parent = await installRoot({ scope: args.scope, projectRoot: project, managedId: args.managedId, sourcePath: args.sourcePath });
       const destination = join(parent, preview.name);
       if (await exists(destination) || await exists(join(parent, `${preview.name}.md`))) throw new Error(`同名技能已存在，未覆盖：${destination}`);
       const source = join(data, 'staging', preview.id, preview.name);
       const detail = await run({ action: 'check', path: source }, signal);
       if (!detail.validation.valid) throw new Error(detail.validation.errors.join('\n'));
       signal?.throwIfAborted();
-      const record = { id: randomUUID(), name: detail.name, description: detail.metadata.description, catalog: preview.catalog, url: preview.url, path: destination, projectRoot: project, scope: args.scope, installedAt: new Date().toISOString(), state: 'installed' };
+      const record = { id: randomUUID(), name: detail.name, description: detail.metadata.description, catalog: preview.catalog, url: preview.url, path: destination, projectRoot: project, scope: args.scope, ...(args.scope === 'managed' && { managedId: args.managedId }), installedAt: new Date().toISOString(), state: 'installed' };
       const pending = join(parent, `.skillnet-pending-${record.id}`);
       try {
         await cp(source, pending, { recursive: true, errorOnExist: true, force: false });
@@ -151,7 +216,7 @@ export function createLibrary(run, skills, config = {}) {
         catch (error) { await rename(destination, pending); throw error; }
       } finally { await rm(pending, { recursive: true, force: true }); }
       // Publication has completed; cancellation must not hide the committed result.
-      return { ...record, native: await verify(record, undefined, true) };
+      return { ...record, native: await verify(record, undefined, record.scope !== 'managed') };
     });
   }
   async function records() {
@@ -223,5 +288,5 @@ export function createLibrary(run, skills, config = {}) {
     await save('previews', id, { id, url: null, name: detail.name, catalog: null, preparedAt: new Date().toISOString() });
     return { ...detail, previewId: id };
   }
-  return { home, prepare, prepareLocal, install, list, inspectInstalled, file, remove, restore, verify: async (args, signal) => verify(await installation(args.id), signal, true, args.cwd) };
+  return { home, createManaged, prepare, prepareLocal, install, list, inspectInstalled, file, remove, restore, verify: async (args, signal) => verify(await installation(args.id), signal, true, args.cwd) };
 }

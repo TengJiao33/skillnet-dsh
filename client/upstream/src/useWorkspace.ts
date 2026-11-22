@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { parseSnapshot } from './data'
 import type { Dataset } from './data'
-import { unifiedLibrary, createDefaultLibrary, initialLibraryPath, readLocalLibrary } from './localLibrary'
+import { unifiedLibrary, createDefaultLibrary, createNamedLibrary, initialLibraryPath, readLocalLibrary } from './localLibrary'
 import type { LocalLibrary, LocalLibraryData } from './localLibrary'
 import {
   clearImport,
@@ -32,6 +32,10 @@ const pendingReads = new Map<string, Promise<LocalLibraryData>>()
 function comparablePath(value: string) {
   const path = value.replaceAll('\\', '/').replace(/\/+$/, '')
   return /^[a-zA-Z]:|^\/\//.test(path) ? path.toLowerCase() : path
+}
+
+export function hasCustomAnalysisDirectory(library: LocalLibrary) {
+  return Boolean(library.indexPath && comparablePath(library.indexPath) !== `${comparablePath(library.sourcePath)}/.skillnet`)
 }
 
 // Navigation does not own these reads: leaving the panel must not cancel a
@@ -131,7 +135,7 @@ export function useWorkspace() {
   // Every asynchronous user action passes through one gate. Controls cannot launch
   // overlapping reads/writes, and unmounted or superseded requests cannot publish state.
   const run = async (work: (signal: AbortSignal) => Promise<() => void>) => {
-    if (operation.current || restoring) return
+    if (operation.current || restoring) return false
     background.current?.abort()
     const controller = new AbortController()
     operation.current = controller
@@ -139,10 +143,13 @@ export function useWorkspace() {
     setError(null)
     try {
       const commit = await work(controller.signal)
-      if (!controller.signal.aborted) commit()
+      if (controller.signal.aborted) return false
+      commit()
+      return true
     } catch (cause) {
       if (!controller.signal.aborted)
         setError(cause instanceof Error ? cause.message : "无法加载技能库。")
+      return false
     } finally {
       if (!controller.signal.aborted) {
         operation.current = null
@@ -234,13 +241,26 @@ export function useWorkspace() {
   useEffect(() => {
     const refresh = (event: Event) => {
       const connection = (event as CustomEvent).detail
-      if (connection?.sourcePath) void connectLocalLibrary(connection.sourcePath)
+      if (!connection?.sourcePath) return
+      const library = { ...connection, id: `local:${connection.id}` } as LocalLibrary
+      if (library.id === collection) void openLocalLibrary(library)
+      else setLocalLibraries(previous => previous.some(item => item.id === library.id) ? previous : [...previous, library])
     }
     window.addEventListener('skillnet-library-changed', refresh)
     return () => window.removeEventListener('skillnet-library-changed', refresh)
   })
   const createPersonalLibrary = () =>
-    run(async (signal) => connect(await createDefaultLibrary(), signal))
+    run(async (signal) => connect(await createDefaultLibrary(signal), signal))
+  const createLibrary = (name: string) =>
+    run(async signal => {
+      const data = await createNamedLibrary(name.trim(), signal)
+      const library = data.connection
+      if (!library) throw new Error('未能连接新建的技能库。')
+      return () => {
+        setLocalLibraries(previous => [...previous, library])
+        selectLocal(library, data)
+      }
+    })
   const updateIndex = (indexPath?: string) =>
     run(async (signal) => {
       const library = localLibraries.find((item) => item.id === collection)
@@ -331,6 +351,7 @@ export function useWorkspace() {
     openLocalLibrary,
     connectLocalLibrary,
     createPersonalLibrary,
+    createLibrary,
     updateIndex,
     forgetLocalLibrary,
     importFile,

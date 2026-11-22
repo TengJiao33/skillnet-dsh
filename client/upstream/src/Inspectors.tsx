@@ -207,7 +207,7 @@ export function SkillInspector({
         {actions}
       </div>
       <div className="skill-path">
-        <FileText size={14} /> {skill.path || skill.id}
+        <FileText size={14} /><span>{skill.path || skill.id}</span>
       </div>
       <div className="capability-card">
         <div className="field-label">

@@ -135,6 +135,20 @@ test('public catalog browsing preserves its endpoint without resolving or forwar
   assert.deepEqual(await workspace.configured({ action: 'discover' }), { skills: [] });
 });
 
+test('catalog source checks resolve only the GitHub credential', async t => {
+  const home = await mkdtemp(join(tmpdir(), 'skillnet-source-check-settings-'));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const workspace = createWorkspace({ credentials: { resolve(key) {
+    assert.equal(key, 'DSH_SKILLNET_GITHUB_TOKEN');
+    return { value: 'fixture-github-token' };
+  } } }, async request => {
+    assert.equal(request.action, 'source-status');
+    assert.deepEqual(request._settings, { github_token: 'fixture-github-token' });
+    return [];
+  }, { home });
+  assert.deepEqual(await workspace.configured({ action: 'source-status', urls: [] }), []);
+});
+
 test('a real unbuilt library reopens with its saved default index path without creating or requiring an analysis folder', async t => {
   const home = await mkdtemp(join(tmpdir(), 'skillnet-unbuilt-home-'));
   t.after(() => rm(home, { recursive: true, force: true }));

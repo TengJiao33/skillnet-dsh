@@ -1152,7 +1152,8 @@ main {
   color: #6d8390;
 }
 .graph-subtitle .graph-limit {
-  flex-basis: 100%;
+  flex: 1 1 10rem;
+  text-align: end;
 }
 .graph-relation-control {
   display: flex;
@@ -1389,7 +1390,7 @@ main {
   color: #496474;
   flex: none;
 }
-.local-library-menu summary {
+.local-library-menu > summary {
   list-style: none;
   cursor: pointer;
   padding: 10px 12px;
@@ -1402,59 +1403,123 @@ main {
 .local-library-menu summary::-webkit-details-marker {
   display: none;
 }
-.local-library-menu > div {
+.local-library-menu > .library-menu-panel {
   position: absolute;
   z-index: 20;
   top: calc(100% + 5px);
   left: 0;
-  width: min(330px, 80vw);
-  padding: 9px;
+  display: grid;
+  gap: 10px;
+  width: min(338px, 90vw);
+  max-height: min(560px, 68dvh);
+  overflow: auto;
+  padding: 12px;
   background: #fff;
   border: 1px solid #dce6e9;
-  border-radius: 9px;
+  border-radius: 10px;
   box-shadow: 0 12px 30px rgba(16, 48, 69, 0.14);
 }
-.local-library-menu label {
-  display: block;
-  padding: 6px 9px;
+.library-menu-location {
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: #f3f7f8;
   color: #536d79;
-  font-size: 11px;
+  font-size: 12px;
 }
-.local-library-menu input {
+.library-menu-location-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.library-menu-location code {
+  display: block;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.library-menu-group {
+  display: grid;
+  gap: 6px;
+}
+.library-menu-group + .library-menu-group {
+  border-top: 1px solid #e7edef;
+  padding-top: 9px;
+}
+.library-menu-panel label {
+  display: grid;
+  gap: 5px;
+  color: #536d79;
+  font-size: 12px;
+}
+.library-menu-panel input {
   display: block;
   width: 100%;
-  margin-top: 5px;
+  min-width: 0;
   padding: 8px;
   border: 1px solid #dce6e9;
-  border-radius: 6px;
+  border-radius: 7px;
+  background: #fff;
   color: #223d4c;
   font: inherit;
 }
-.local-path {
-  margin: 4px 9px;
-  padding: 7px 0;
-  color: #6b7d89;
-  font-size: 11px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-  border-bottom: 1px solid #e7edef;
-}
-.local-library-menu button {
-  display: block;
+.library-menu-panel :is(button:not(.sn-select), summary) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  padding: 9px 10px;
-  border: 0;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid #dce6e9;
+  border-radius: 7px;
   background: #fff;
   text-align: left;
   color: #314c5c;
-  font: inherit;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
   cursor: pointer;
-  white-space: nowrap;
+  list-style: none;
 }
-.local-library-menu button:hover {
+.library-menu-panel :is(button:enabled:not(.sn-select):hover, summary:hover, details[open] > summary) {
   background: #eef7f4;
   color: #087b61;
 }
+.library-menu-panel button:disabled:not(.sn-select) {
+  opacity: .55;
+  cursor: default;
+}
+.library-menu-panel button.library-menu-primary {
+  border-color: #95cdbd;
+  background: #e4f4ef;
+  color: #067a5f;
+  font-weight: 600;
+}
+.library-menu-panel button.library-menu-primary:enabled:hover { background: #c9eee4; }
+.library-menu-panel button.library-menu-refresh {
+  width: auto;
+  min-height: 30px;
+  padding: 4px 7px;
+  font-size: 12px;
+}
+.library-menu-panel button.library-menu-disconnect { color: #a7503c; }
+.library-menu-panel button.library-menu-disconnect:enabled:hover { background: #fff6f3; }
+.library-menu-panel svg { flex: none; }
+.library-menu-disclosure > summary > svg:last-child { margin-inline-start: auto; }
+.library-menu-disclosure[open] > summary > svg:last-child { transform: rotate(180deg); }
+.library-menu-disclosure > form {
+  display: grid;
+  gap: 8px;
+  padding: 10px 4px 4px;
+}
+.library-menu-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.library-menu-form-actions button:not(.sn-select) { width: auto; }
 .stale-banner {
   margin-top: 10px;
   padding: 10px 14px;
@@ -1667,7 +1732,7 @@ main {
 .primary-button,
 .onboarding-secondary,
 .onboarding-connected button,
-.local-library-menu summary,
+.local-library-menu > summary,
 .graph-tools,
 .graph-tools button {
   border-radius: 0;

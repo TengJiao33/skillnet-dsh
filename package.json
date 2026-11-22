@@ -36,7 +36,7 @@
   ],
   "engines": {
     "node": ">=22.19",
-    "dsh": "0.2.2-rc.1"
+    "dsh": "0.2.2-rc.1 || 0.2.2-rc.5"
   },
   "dsh": {
     "bundle": {
@@ -57,7 +57,7 @@
     }
   },
   "scripts": {
-    "check": "node --check src/index.js && node --check src/panel.js && node --check src/backend.js && node --check src/library.js && node --check src/native.js && node --check src/workspace.js && node --check src/analysis-conversation.js && node --check src/host-model.js && node --check src/task-store.js && node --check src/search.js",
+    "check": "node --check src/index.js && node --check src/panel.js && node --check src/backend.js && node --check src/library.js && node --check src/native.js && node --check src/workspace.js && node --check src/analysis-conversation.js && node --check src/host-model.js && node --check src/task-store.js && node --check src/search.js && node --check src/catalog.js",
     "test": "node --test test/*.test.js",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p client/tsconfig.json"

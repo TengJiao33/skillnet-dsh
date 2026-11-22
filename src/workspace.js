@@ -3,11 +3,13 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import { createHash, randomUUID } from 'node:crypto';
 import { createTaskStore } from './task-store.js';
 import { createAnalysisConversation } from './analysis-conversation.js';
+import { managedLibraryInfo } from './library.js';
 
 const secrets = ['api_key', 'embedding_api_key', 'explorer_api_key', 'github_token'];
 const fields = ['base_url', 'model', 'embedding_base_url', 'embedding_model', 'explorer_base_url', 'explorer_model', 'json_mode', 'skillnet_api_url', 'github_mirror'];
 const settingNames = { api_key: '分析模型 API 密钥', embedding_api_key: '向量模型 API 密钥', embedding_base_url: '向量模型地址', embedding_model: '向量模型名称', explorer_api_key: 'DSH 探索器 API 密钥', explorer_base_url: 'DeepSeek Messages 地址', explorer_model: '探索器模型名称' };
 const actionNames = { analyze: '建图', route: '任务路由', create: '创建技能', evaluate: '评估技能' };
+const personalLibraryName = 'DSH 个人技能库';
 const credential = key => `DSH_SKILLNET_${key.toUpperCase()}`;
 const same = (a, b) => Boolean(a && b) && (process.platform === 'win32' ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b));
 const text = (value, name, limit = 100_000) => {
@@ -38,12 +40,16 @@ export function createWorkspace(ctx, run, library, hostModel) {
       const { skillnet_api_url } = await read('settings.json', {});
       return run({ ...request, _settings: { skillnet_api_url } }, signal);
     }
+    if (request.action === 'source-status') {
+      const found = await ctx.credentials.resolve(credential('github_token'));
+      return run({ ...request, _settings: found ? { github_token: found.value } : {} }, signal);
+    }
     const settings = { ...await read('settings.json', {}), explorer_backend: 'dsh' };
     for (const key of secrets) {
       const found = await ctx.credentials.resolve(credential(key));
       if (found) settings[key] = found.value;
     }
-    if (request._host_model || request.action === 'analysis-step') { delete settings.api_key; delete settings.explorer_api_key; }
+    if (request._host_model || ['analysis-step', 'analysis-plan'].includes(request.action)) { delete settings.api_key; delete settings.explorer_api_key; }
     return run({ ...request, _settings: settings }, signal, invokeHost);
   }
   async function settings(args = {}, signal) {
@@ -68,38 +74,79 @@ export function createWorkspace(ctx, run, library, hostModel) {
     });
     return configured({ action: 'settings' }, signal);
   }
-  async function connect(args, signal) {
-    return serial(async () => {
-      if (!isAbsolute(args.sourcePath || '')) throw new Error('请填写技能库的绝对路径。');
-      const sourcePath = await realpath(args.sourcePath);
-      const state = await read('workspace.json', { libraries: [] });
-      const previous = state.libraries.find(item => same(item.sourcePath, sourcePath));
-      const explicit = Object.hasOwn(args, 'indexPath');
-      const defaultIndex = join(sourcePath, '.skillnet');
-      // The default is an analysis output location, not an existing input folder.
-      // Older clients also send this saved path back when reopening a fresh library.
-      const customIndex = explicit && args.indexPath && !same(args.indexPath, defaultIndex);
-      const indexPath = explicit ? (customIndex ? await realpath(args.indexPath) : defaultIndex) : previous?.indexPath || defaultIndex;
-      const data = await configured({ action: 'local-library', sourcePath, indexPath: same(indexPath, defaultIndex) ? undefined : indexPath }, signal);
-      if (customIndex && (!data.graph || data.analysisError)) throw new Error(data.analysisError || '这个目录中没有可用的分析结果。');
-      let analysisRevision = null;
-      if (data.graph && !data.analysisError) {
-        try { analysisRevision = `${indexPath}/${(await readFile(join(indexPath, 'CURRENT'), 'utf8')).trim()}`; }
-        catch (error) {
-          if (error.code !== 'ENOENT') throw error;
-          // Imported flat indexes have no CURRENT pointer.
-          try { analysisRevision = `${indexPath}/graph.json:${(await stat(join(indexPath, 'graph.json'))).mtimeMs}`; }
-          catch (error) { if (error.code !== 'ENOENT') throw error; }
-        }
+  const workspaceState = () => read('workspace.json', { libraries: [] });
+  async function connectPath(state, args, signal, select) {
+    if (!isAbsolute(args.sourcePath || '')) throw new Error('请填写技能库的绝对路径。');
+    const sourcePath = await realpath(args.sourcePath);
+    const previous = state.libraries.find(item => same(item.sourcePath, sourcePath));
+    const explicit = Object.hasOwn(args, 'indexPath');
+    const defaultIndex = join(sourcePath, '.skillnet');
+    // The default is an analysis output location, not an existing input folder.
+    // Older clients also send this saved path back when reopening a fresh library.
+    const customIndex = explicit && args.indexPath && !same(args.indexPath, defaultIndex);
+    const indexPath = explicit ? (customIndex ? await realpath(args.indexPath) : defaultIndex) : previous?.indexPath || defaultIndex;
+    const data = await configured({ action: 'local-library', sourcePath, indexPath: same(indexPath, defaultIndex) ? undefined : indexPath }, signal);
+    if (customIndex && (!data.graph || data.analysisError)) throw new Error(data.analysisError || '这个目录中没有可用的分析结果。');
+    let analysisRevision = null;
+    if (data.graph && !data.analysisError) {
+      try { analysisRevision = `${indexPath}/${(await readFile(join(indexPath, 'CURRENT'), 'utf8')).trim()}`; }
+      catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        // Imported flat indexes have no CURRENT pointer.
+        try { analysisRevision = `${indexPath}/graph.json:${(await stat(join(indexPath, 'graph.json'))).mtimeMs}`; }
+        catch (error) { if (error.code !== 'ENOENT') throw error; }
       }
-      const item = { id: previous?.id || randomUUID(), name: same(sourcePath, join(library.home, 'skills')) ? 'DSH 个人技能库' : basename(sourcePath), sourcePath, indexPath };
-      state.libraries = [...state.libraries.filter(x => x.id !== item.id), item];
-      state.lastPath = sourcePath;
-      await save('workspace.json', state);
-      return { ...data, analysisRevision, connection: item };
+    }
+    const managed = await managedLibraryInfo(library.home, sourcePath);
+    const name = managed?.name || (same(sourcePath, join(library.home, 'skills')) ? personalLibraryName : basename(sourcePath));
+    const item = { id: managed?.id || previous?.id || randomUUID(), name, sourcePath, indexPath, ...(managed && { managed: true }) };
+    state.libraries = [...state.libraries.filter(x => x.id !== item.id && x.id !== previous?.id), item];
+    if (select) state.lastPath = sourcePath;
+    await save('workspace.json', state);
+    return { ...data, analysisRevision, connection: item };
+  }
+  function connect(args, signal) {
+    return serial(async () => connectPath(await workspaceState(), args, signal, true));
+  }
+  async function listLibraries() { return (await workspaceState()).libraries; }
+  function createNamed(args, signal) {
+    return serial(async () => {
+      const name = text(args.name, '技能库名称', 60).normalize('NFC');
+      const state = await workspaceState();
+      if ([personalLibraryName, ...state.libraries.map(item => item.name)].some(existing => existing.normalize('NFC').toLowerCase() === name.toLowerCase())) {
+        throw new Error('已有同名技能库，请换一个名称。');
+      }
+      signal?.throwIfAborted();
+      const sourcePath = await library.createManaged(name);
+      return connectPath(state, { sourcePath }, undefined, true);
     });
   }
-  async function listLibraries() { return (await read('workspace.json', { libraries: [] })).libraries; }
+  async function installTargets() {
+    const state = await workspaceState();
+    const managed = state.libraries.filter(item => item.managed);
+    return {
+      targets: [{ id: '', name: personalLibraryName, sourcePath: join(library.home, 'skills') }, ...managed],
+      currentId: managed.find(item => same(item.sourcePath, state.lastPath))?.id || '',
+    };
+  }
+  function install(args, signal) {
+    return serial(async () => {
+      if (args.scope && args.scope !== 'user') throw new Error('请选择个人技能库或独立技能库。');
+      const target = args.libraryId ? await selected({ libraryId: args.libraryId }) : null;
+      if (target && !target.managed) throw new Error('请选择在 SkillNet 新建的技能库。');
+      const result = await library.install({
+        previewId: args.previewId,
+        scope: target ? 'managed' : 'user',
+        managedId: target?.id,
+        sourcePath: target?.sourcePath,
+      }, signal);
+      try {
+        const data = await connectPath(await workspaceState(), { sourcePath: dirname(result.path) }, undefined, false);
+        result.connection = data.connection;
+      } catch (error) { result.connectionWarning = error.message; }
+      return { ...result, libraryName: target?.name || personalLibraryName };
+    });
+  }
   async function forget(args) {
     return serial(async () => {
       const state = await read('workspace.json', { libraries: [] });
@@ -342,7 +389,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
     return lastPath ? { sourcePath: lastPath } : createDefault();
   }
   const analysisConversation = createAnalysisConversation(ctx, { root, selected, configured, hostModel, locks });
-  return { configured, start, analysisConversation, routeConversation, settings, listLibraries, connect, forget, tasks, getTask, latestEvaluation, publish, useRoute, useSkill, createDefault, config,
+  return { configured, start, analysisConversation, routeConversation, settings, listLibraries, connect, forget, tasks, getTask, latestEvaluation, publish, useRoute, useSkill, createDefault, createNamed, installTargets, install, config,
     async cancel(args) { const task = await getTask(args.id); if (!['running', 'stopping'].includes(task.status)) return task; await ctx.jobs.kill(task.id, task.owner, '已从 SkillNet 面板取消'); return getTask(task.id); },
   };
 }

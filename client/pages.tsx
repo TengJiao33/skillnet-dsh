@@ -6,6 +6,7 @@ import { Select } from './Select'
 const evaluationNames: Record<string, string> = { safety: '安全性', completeness: '完整性', executability: '可执行性', cost_awareness: '成本意识', maintainability: '可维护性' }
 const levels: Record<string, string> = { Good: '良好', Average: '一般', Poor: '较弱' }
 const evaluationText = (value: any) => levels[value?.level || value] || value?.level || String(value)
+type InstallTarget = { id: string, name: string }
 
 function packageReadFailure(error: any) {
   const message = String(error?.message || error)
@@ -28,22 +29,23 @@ function repositoryUrl(source: string) {
 }
 
 let initialCatalog: any = null
+let initialCatalogExpiresAt = 0
 let initialCatalogRequest: Promise<any> | null = null
 function readInitialCatalog() {
-  if (initialCatalog) return Promise.resolve(initialCatalog)
-  if (!initialCatalogRequest) initialCatalogRequest = api('discover').then(value => { initialCatalog = value; return value }).finally(() => { initialCatalogRequest = null })
+  if (initialCatalog && Date.now() < initialCatalogExpiresAt) return Promise.resolve(initialCatalog)
+  if (!initialCatalogRequest) initialCatalogRequest = api('discover').then(value => { initialCatalog = value; initialCatalogExpiresAt = Date.now() + 300_000; return value }).finally(() => { initialCatalogRequest = null })
   return initialCatalogRequest
 }
 
-function PackageDialog({ name, action, pending, onClose, children }: { name: string, action: 'view' | 'download', pending: boolean, onClose: () => void, children: ReactNode }) {
+function PackageDialog({ name, pending, onClose, children }: { name: string, pending: boolean, onClose: () => void, children: ReactNode }) {
   const dialog = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const element = dialog.current
     element?.showModal()
     return () => { if (element?.open) element.close() }
   }, [])
-  return <dialog ref={dialog} className="dsh-use-dialog dsh-package-dialog" aria-labelledby="dsh-package-label dsh-package-heading" onClose={onClose} onCancel={event => { if (pending) event.preventDefault() }}>
-    <header className="dsh-package-dialog-header"><div><p id="dsh-package-label">{action === 'download' ? '下载技能' : '技能包详情'}</p><h2 id="dsh-package-heading">{name}</h2></div><button type="button" autoFocus disabled={pending} onClick={onClose}>关闭</button></header>
+  return <dialog ref={dialog} className="dsh-use-dialog dsh-package-dialog" aria-labelledby="dsh-package-heading" onClose={onClose} onCancel={event => { if (pending) event.preventDefault() }}>
+    <header className="dsh-package-dialog-header"><h2 id="dsh-package-heading">{name}</h2><button type="button" autoFocus disabled={pending} onClick={onClose}>关闭</button></header>
     <div className="dsh-package-dialog-body">{children}</div>
   </dialog>
 }
@@ -56,7 +58,7 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
   const [stars, setStars] = useState(0)
   const [threshold, setThreshold] = useState(0.8)
   const [limit, setLimit] = useState(20)
-  const [result, setResult] = useState<any>(initialCatalog)
+  const [result, setResult] = useState<any>(() => Date.now() < initialCatalogExpiresAt ? initialCatalog : null)
   const [browseBusy, setBrowseBusy] = useState(false)
   const [browseError, setBrowseError] = useState('')
   const [library, setLibrary] = useState<any>(null)
@@ -70,6 +72,8 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  const [installTargets, setInstallTargets] = useState<{ previewId: string, targets: InstallTarget[], error?: string } | null>(null)
+  const [installTarget, setInstallTarget] = useState('')
   const searchController = useRef<AbortController | null>(null)
   const packageController = useRef<AbortController | null>(null)
   const resultVersion = useRef(0)
@@ -84,6 +88,21 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
   useEffect(() => {
     if (preview) { packageController.current?.abort(); packageController.current = null; setDetail(preview); setPackageName(preview.name); setPackageError(''); setPackageLoading(false); setPackageAction('download'); setPackageOpen(true) }
   }, [preview])
+  const previewId = detail?.validation.valid ? detail.previewId : null
+  const forConversation = Boolean(preview?.installToPersonal)
+  useEffect(() => {
+    setInstallTargets(null)
+    if (!previewId) return
+    const controller = new AbortController()
+    void api('install-targets', {}, controller.signal).then(value => {
+      if (controller.signal.aborted) return
+      setInstallTargets({ previewId, targets: forConversation ? value.targets.filter((item: InstallTarget) => !item.id) : value.targets })
+      setInstallTarget(forConversation ? '' : value.currentId)
+    }).catch(cause => {
+      if (!controller.signal.aborted) setInstallTargets({ previewId, targets: [], error: cause.message })
+    })
+    return () => controller.abort()
+  }, [previewId, forConversation])
   async function act(work: () => Promise<void>) { if (busy) return; setBusy(true); setError(''); setNotice(''); try { await work() } catch (e: any) { setError(e.message) } finally { setBusy(false) } }
   async function browse(page = 1) {
     const version = ++resultVersion.current
@@ -130,7 +149,30 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
     return openPackage(skill.skill_name, signal => found && action === 'view' ? api('installed', { id: found.id }, signal) : api('inspect', { url: skill.skill_url, catalog: skill }, signal), action)
   }
   const native = (value: any) => value?.effective ? value.modelInvocable || value.userInvocable ? 'DSH 可调用' : '已识别，当前预设禁用调用' : value?.available ? '存在同名覆盖' : 'DSH 尚未识别'
-  const installation = detail && (detail.previewId ? <div className="dsh-package-install">{packageAction === 'download' && <p>{detail.validation.valid ? '技能包已读取并通过结构校验，将安装到 DSH 个人技能目录。' : '技能包结构校验未通过，暂不能安装。'}</p>}<div className="dsh-row"><button className="primary-button" disabled={busy || !detail.validation.valid} onClick={() => void act(async () => { const value = await api('install', { previewId: detail.previewId, scope: 'user' }); setDetail({ ...detail, previewId: null, installationId: value.id, native: value.native }); setNotice(`已安装。${native(value.native)}${value.connectionWarning ? '，技能库连接失败：' + value.connectionWarning : ''}`); window.dispatchEvent(new CustomEvent('skillnet-library-changed', { detail: value.connection })); await refresh() })}>确认安装</button></div></div> : <div><p>{native(detail.native)}</p><pre>{`/${detail.name}\n请使用这个技能处理我的任务：`}</pre></div>)
+  const targetOptions = installTargets?.previewId === previewId ? installTargets : null
+  const destination = targetOptions?.targets.find(item => item.id === installTarget)
+  async function install() {
+    if (!destination || !previewId) return
+    await act(async () => {
+      const args = destination.id ? { previewId, libraryId: destination.id } : { previewId, scope: 'user' }
+      const value = await api('install', args)
+      setDetail({ ...detail, previewId: null, installationId: value.id, native: value.native, record: value })
+      setNotice(`已安装到「${value.libraryName}」。${value.connectionWarning ? '技能库刷新失败：' + value.connectionWarning : ''}`)
+      window.dispatchEvent(new CustomEvent('skillnet-library-changed', { detail: value.connection }))
+      await refresh()
+    })
+  }
+  const savedToManaged = detail?.record?.scope === 'managed' && !detail.native?.effective
+  const installation = detail && (detail.previewId ? <div className="dsh-package-install">
+    {!detail.validation.valid ? <p>此技能包无法安装。</p> :
+      targetOptions?.error ? <p role="alert">{targetOptions.error}</p> :
+      targetOptions ? <label className="dsh-install-target"><span>安装到</span>
+        {targetOptions.targets.length > 1 ? <Select aria-label="安装到" value={installTarget} disabled={busy} onValueChange={setInstallTarget}>
+          {targetOptions.targets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </Select> : <strong>{destination?.name}</strong>}
+      </label> : <p role="status">正在读取技能库…</p>}
+    <button type="button" className="primary-button" disabled={busy || !destination || !detail.validation.valid} onClick={() => void install()}>确认安装</button>
+  </div> : !savedToManaged && <p>{native(detail.native)}</p>)
   return <main className="dsh-page dsh-discover-page"><h1>发现下一项能力</h1>
     <form className="dsh-search" onSubmit={e => { e.preventDefault(); void search() }}><input aria-label="搜索技能" placeholder="搜索技能或描述任务" required value={query} onChange={e => setQuery(e.target.value)} /><button className="primary-button" disabled={busy}>搜索</button>{busy && searchController.current && <button type="button" onClick={() => searchController.current?.abort()}>取消检索</button>}
       <details className="dsh-search-options">
@@ -149,8 +191,8 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
     {browseError && <div className="error-banner" role="alert">{browseError} <button disabled={browseBusy} onClick={() => void browse(result?.page || 1)}>重试</button></div>}
     {result?.warnings?.length > 0 && <div className="dsh-search-feedback" role="status"><Info size={16} aria-hidden="true" /><span>{result.warnings.join(' ')}{result.skills.length > 0 && ' 已保留已获取的匹配结果。'}</span></div>}
     {result && <>
-      <div className="dsh-row dsh-catalog-heading"><h2>{result.browse ? '浏览技能' : '搜索结果'}</h2>{result.browse && <span>按来源仓库星标排序</span>}<span>{Array.isArray(result.candidates) ? `已召回 ${result.candidateCount} 项 · 第 ${result.page} 页 · 当前 ${result.skills.length} 项` : `${result.mode === 'keyword' ? `第 ${result.page} 页 / ` : ''}${result.skills.length} 项`}</span>{!result.browse && <button disabled={busy || browseBusy} onClick={() => { setQuery(''); void browse() }}>返回浏览</button>}{(result.mode === 'keyword' || Array.isArray(result.candidates)) && <><button disabled={busy || browseBusy || result.page <= 1} onClick={() => result.browse ? void browse(result.page - 1) : searchPage(result.page - 1)}>上一页</button><button disabled={busy || browseBusy || (Array.isArray(result.candidates) ? result.page * result.limit >= result.candidates.length : result.skills.length < result.limit)} onClick={() => result.browse ? void browse(result.page + 1) : searchPage(result.page + 1)}>下一页</button></>}</div>
-      {!result.skills.length && <p role="status">{result.browse ? '暂无可浏览的技能，可输入任务搜索。' : '没有找到匹配的技能，试试调整搜索内容或筛选条件。'}</p>}
+      <div className="dsh-row dsh-catalog-heading"><h2>{result.browse ? '浏览技能' : '搜索结果'}</h2>{result.browse && <span>按来源仓库星标排序</span>}<span>{Array.isArray(result.candidates) ? `已召回 ${result.candidateCount} 项 · 第 ${result.page} 页 · 当前 ${result.skills.length} 项` : `${result.mode === 'keyword' ? `第 ${result.page} 页 / ` : ''}${result.skills.length} 项`}</span>{!result.browse && <button disabled={busy || browseBusy} onClick={() => { setQuery(''); void browse() }}>返回浏览</button>}{(result.mode === 'keyword' || Array.isArray(result.candidates)) && <><button disabled={busy || browseBusy || result.page <= 1} onClick={() => result.browse ? void browse(result.page - 1) : searchPage(result.page - 1)}>上一页</button><button disabled={busy || browseBusy || (Array.isArray(result.candidates) ? result.page * result.limit >= result.candidates.length : !(result.hasMore ?? result.skills.length >= result.limit))} onClick={() => result.browse ? void browse(result.page + 1) : searchPage(result.page + 1)}>下一页</button></>}</div>
+      {!result.skills.length && <p role="status">{result.hasMore ? '本页暂无可用技能，可继续查看下一页。' : result.browse ? '暂无可浏览的技能，可输入任务搜索。' : '没有找到匹配的技能，试试调整搜索内容或筛选条件。'}</p>}
       <div className="dsh-catalog">{result.skills.map((skill: any) => {
         const repository = repositoryUrl(skill.skill_url)
         const source = <><FolderGit2 size={15} aria-hidden="true" /><span>{skill.repo_name || '来源仓库'}</span></>
@@ -169,11 +211,11 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
       </article>})}</div>
     </>}
     {!packageOpen && <>{busy && <p role="status">正在处理…</p>}{error && <p className="error-banner" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}</>}{library?.warnings?.map((warning: string) => <p key={warning} role="status">{warning}</p>)}
-    {packageOpen && <PackageDialog name={detail?.name || packageName} action={packageAction} pending={busy && !packageLoading} onClose={closePackage}>
+    {packageOpen && <PackageDialog name={detail?.name || packageName} pending={busy && !packageLoading} onClose={closePackage}>
       {packageLoading && <p role="status">正在读取技能包…</p>}
       {packageError && <p className="error-banner" role="alert">{packageError}</p>}
       {busy && !packageLoading && <p role="status">正在处理…</p>}{error && <p className="error-banner" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
-    {detail && <section className="dsh-package" aria-label="技能包内容"><span>{detail.validation.valid ? '结构校验通过' : '结构校验未通过'} / {detail.files.length} 个文件</span>{detail.url && <a href={detail.url} target="_blank" rel="noreferrer">原仓库 ↗</a>}
+    {detail && <section className="dsh-package" aria-label="技能包内容">{detail.url && <a href={detail.url} target="_blank" rel="noreferrer">原仓库 ↗</a>}
       {packageAction === 'download' && installation}
       {[...detail.validation.errors, ...detail.validation.warnings].map((message: string, i: number) => <p role="status" key={i}>{message}</p>)}
       <pre>{detail.source}</pre><details><summary>技能包文件</summary>{detail.files.map((name: string) => <button key={name} disabled={busy} onClick={() => void act(async () => { setFile(await api('file', { previewId: detail.previewId, id: detail.installationId, file: name })) })}>{name}</button>)}{file && <><h3>{file.file}</h3><pre>{file.binary ? '二进制文件' : file.text}</pre>{file.truncated && <p>仅显示前 256 KiB。</p>}</>}</details>

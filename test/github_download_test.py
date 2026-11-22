@@ -12,7 +12,7 @@ from zipfile import ZipFile, ZipInfo
 import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'python'))
-from github_download import GitHubDownloader, download_skill
+from github_download import GitHubDownloader, check_sources, download_skill
 
 
 REF = 'a' * 40
@@ -53,6 +53,42 @@ class DownloadTests(unittest.TestCase):
 
     def quota(self):
         return response(403, {'message': 'API rate limit exceeded'}, {'x-ratelimit-remaining': '0'})
+
+    def test_catalog_check_uses_pinned_skill_file_without_downloading_package(self):
+        with patch('requests.Session.get', return_value=response(200)) as get:
+            result = check_sources(self.client, [URL, URL])
+        self.assertEqual(result, [{'url': URL, 'status': 'available'}])
+        self.assertEqual(get.call_count, 1)
+        self.assertEqual(get.call_args.args[0], RAW + 'SKILL.md')
+        self.assertTrue(get.call_args.kwargs['stream'])
+        self.assertFalse(get.call_args.kwargs['allow_redirects'])
+
+    def test_catalog_missing_is_confirmed_by_api_and_never_switches_revision(self):
+        with patch('requests.Session.get', side_effect=[response(404), response(404)]) as get:
+            self.assertEqual(check_sources(self.client, [URL])[0]['status'], 'missing')
+        self.assertEqual(get.call_args.args[0], CONTENTS.replace('?ref=', '/SKILL.md?ref='))
+        self.assertNotIn('main', get.call_args.args[0])
+
+    def test_catalog_transient_errors_do_not_hide_skills(self):
+        for status in (401, 403, 429, 500, 503):
+            with self.subTest(status=status), patch('requests.Session.get', return_value=response(status)) as get:
+                self.assertEqual(check_sources(self.client, [URL])[0]['status'], 'unknown')
+                self.assertEqual(get.call_count, 1)
+        with patch('requests.Session.get', side_effect=requests.Timeout('fixture timeout')):
+            self.assertEqual(check_sources(self.client, [URL])[0]['status'], 'unknown')
+
+    def test_catalog_raw_404_is_not_enough_to_hide_available_or_redirected_sources(self):
+        for status, expected in ((200, 'available'), (301, 'unknown'), (403, 'unknown')):
+            with self.subTest(status=status), patch('requests.Session.get', side_effect=[response(404), response(status)]):
+                self.assertEqual(check_sources(self.client, [URL])[0]['status'], expected)
+
+    def test_catalog_authenticated_check_uses_only_github_api(self):
+        self.client.github_token = 'fixture-only-token'
+        with patch('requests.Session.get', return_value=response(200)) as get:
+            self.assertEqual(check_sources(self.client, [URL])[0]['status'], 'available')
+        self.assertEqual(get.call_count, 1)
+        self.assertTrue(get.call_args.args[0].startswith('https://api.github.com/'))
+        self.assertEqual(get.call_args.kwargs['headers']['Authorization'], 'Bearer fixture-only-token')
 
     def fallback(self, url, **kwargs):
         if url == CONTENTS:
