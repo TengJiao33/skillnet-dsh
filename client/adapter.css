@@ -99,6 +99,8 @@
 .skillnet-shell .dsh-workbench-tools>summary{display:flex;align-items:center;justify-content:center;list-style:none;cursor:pointer;height:40px;padding:0 12px;border:1px solid #dce6e9;border-radius:7px;background:#fff;color:#5b6f7d;font-size:12px;white-space:nowrap}
 .skillnet-shell .dsh-workbench-tools>summary::-webkit-details-marker{display:none}
 .skillnet-shell .dsh-tools-body{position:absolute;right:0;top:calc(100% + 8px);z-index:30;width:min(600px,calc(100vw - 80px));padding:18px;border:1px solid #dce6e9;border-radius:10px;background:#fff;box-shadow:0 12px 30px rgba(16,48,69,.14)}
+.skillnet-shell .dsh-tools-model-row{display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:start;gap:12px}
+.skillnet-shell .dsh-tools-model-row>.dsh-tools-close{grid-column:2;width:44px;padding:0}
 .skillnet-shell .dsh-tools-body>.dsh-row{margin-top:16px}
 .skillnet-shell .dsh-tools-body>.collection-control{margin-top:16px;gap:12px}
 .skillnet-shell .dsh-tools-body>p{margin:12px 0 0;font-size:14px;line-height:1.6}

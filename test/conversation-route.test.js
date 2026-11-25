@@ -69,8 +69,23 @@ test('conversation routing connects the default library, inherits the caller mod
   assert.equal(f.requests.find(request => request.action === 'route').retrievalMode, 'model');
   const library = (await f.workspace.listLibraries())[0];
   assert.equal(library.sourcePath, join(f.home, 'skills'));
+  assert.deepEqual(result.library, { id: library.id, name: library.name });
   await f.workspace.routeConversation({ query: 'another task', libraryId: library.id }, f.execution, f.native);
   await assert.rejects(f.workspace.routeConversation({ query: 'task', libraryId: 'unknown' }, f.execution, f.native), /连接/);
+});
+
+test('recommendation-only routing returns library picks even when native skills are unavailable', async t => {
+  const f = await fixture(t);
+  const args = { query: '只返回技能 ID', loadSkills: false };
+  const unavailable = { get: () => assert.fail('Recommendation looked up a native skill') };
+  const result = await f.workspace.routeConversation(args, f.execution, unavailable);
+  const [library] = await f.workspace.listLibraries();
+  assert.deepEqual(result.library, { id: library.id, name: library.name });
+  assert.deepEqual(result.skills.map(skill => skill.skill_id), ['csv-summary', 'csv-check']);
+  assert.deepEqual(result.loaded, []);
+  assert.deepEqual(f.loads, []);
+  f.mode('stale');
+  await assert.rejects(f.workspace.routeConversation(args, f.execution, unavailable), /重新运行路由/);
 });
 
 test('no suitable skill continues the task without loading, installing or inventing one', async t => {

@@ -24,6 +24,8 @@
     "src",
     "python/worker.py",
     "python/host_adapter.py",
+    "python/graph_build.py",
+    "python/prompts.py",
     "python/model_mode.py",
     "python/conversation_analysis.py",
     "python/github_download.py",

@@ -108,6 +108,66 @@ test('first open creates the native user skill directory under the resolved DSH 
   assert.deepEqual(await workspace.config(), { sourcePath });
 });
 
+test('a new graph job uses the resolved effort for profiles, relations and cache identity', async t => {
+  const original = { provider: 'host', model: 'current', reasoningEffort: 'high' };
+  const invoked = [];
+  let resolved = 0;
+  const host = {
+    async capture() { return { selection: original } },
+    async forRelationReview(model) {
+      resolved++;
+      return { ...model, selection: { ...model.selection, reasoningEffort: 'off' } };
+    },
+    async invoke(model, payload) { invoked.push([payload.phase, model.selection.reasoningEffort]) },
+  };
+  const f = await fixture(t, host);
+  const workspace = createWorkspace(f.ctx, async (request, signal, invoke) => {
+    if (request.action === 'settings') return { fields: {}, checks: {} };
+    if (request.action === 'analysis-plan') {
+      assert.deepEqual(request.modelSelection, { ...original, reasoningEffort: 'off' });
+      return { upToDate: false };
+    }
+    assert.equal(request.action, 'analyze');
+    assert.deepEqual(request._host_model, { ...original, reasoningEffort: 'off' });
+    await invoke({ phase: 'profile' }, signal);
+    await invoke({ phase: 'relation' }, signal);
+    return { cache_hits: { profiles: 1, relations: 1 } };
+  }, { home: f.home }, host);
+  const started = await workspace.start({ action: 'analyze', libraryId: f.item.id });
+  await f.ctx.jobs.get(started.id).hooks.done;
+  const saved = await workspace.getTask(started.id);
+  assert.equal(saved.status, 'completed');
+  assert.equal(saved.relationReasoningEffort, 'off');
+  assert.deepEqual(saved.model, original);
+  assert.deepEqual(saved.result.cache_hits, { profiles: 1, relations: 1 });
+  assert.deepEqual(invoked, [['profile', 'off'], ['relation', 'off']]);
+  assert.equal(resolved, 1);
+});
+
+test('a targeted retry uses the published task model and skips candidate planning', async t => {
+  const host = {
+    capture: () => assert.fail('a retry should reuse the original model'),
+    forRelationReview: () => assert.fail('a retry should reuse the original reasoning effort'),
+  };
+  const f = await fixture(t, host);
+  const record = { id: 'skillnet-analyze-a3', action: 'analyze', status: 'completed', sourcePath: f.path,
+    libraryId: f.item.id, startedAt: '2026-11-24T01:00:00Z', retrievalMode: 'vector',
+    model: { provider: 'original', model: 'original-model', reasoningEffort: 'high' }, relationReasoningEffort: 'off',
+    result: { pending_relations: 1 } };
+  const store = createTaskStore(join(f.home, 'skillnet'));
+  await store.write(record);
+  const index = join(f.path, '.skillnet');
+  await mkdir(index); await writeFile(join(index, 'CURRENT'), 'snapshot-before-update\n');
+  const job = await f.workspace.start({ action: 'analyze', libraryId: f.item.id, retryTaskId: record.id, modelSource: 'sdk' });
+  await f.ctx.jobs.get(job.id).hooks.done;
+  const req = f.requests.find(r => r.action === 'analyze');
+  assert.equal(req.retrySnapshot, 'snapshot-before-update');
+  assert.equal(req.retrievalMode, 'vector');
+  assert.deepEqual(req._host_model, { ...record.model, reasoningEffort: 'off' });
+  assert.ok(!f.requests.some(r => r.action === 'analysis-plan'));
+  await assert.rejects(f.workspace.start({ action: 'analyze', libraryId: f.item.id, retryTaskId: record.id }), /图谱已有更新/);
+});
+
 test('local library browsing does not resolve model credentials or load model settings', async t => {
   const home = await mkdtemp(join(tmpdir(), 'skillnet-reader-settings-'));
   t.after(() => rm(home, { recursive: true, force: true }));

@@ -1,14 +1,15 @@
+import { existsSync } from 'node:fs';
 import { createBackend } from './backend.js';
 import { createLibrary } from './library.js';
 import { nativeSkills } from './native.js';
-import { createWorkspace } from './workspace.js';
+import { createWorkspace, reviewSampleFile } from './workspace.js';
 import { createHostModel } from './host-model.js';
 import { createSearch } from './search.js';
 import { createCatalog } from './catalog.js';
 import { BUILD_REVISION } from './build-info.js';
 
 export const name = 'skillnet';
-export const inject = ['connection', 'tools', 'commands', 'subprocess', 'skills', 'workingDirectory', 'jobs', 'credentials', 'agents', 'sessions', 'sessionController', 'workspaceRegistry', 'systemPrompt', 'agentDefaultModel'];
+export const inject = ['connection', 'tools', 'commands', 'subprocess', 'skills', 'workingDirectory', 'jobs', 'credentials', 'agents', 'sessions', 'sessionController', 'workspaceRegistry', 'systemPrompt', 'agentDefaultModel', 'llm'];
 
 const searchProperties = {
   q: { type: 'string', minLength: 1, description: 'Keyword or a task description.' },
@@ -77,7 +78,7 @@ export function apply(ctx, config = {}) {
     'workspace-forget': args => workspace.forget(args),
     libraries: () => workspace.listLibraries(),
     settings: (args, signal) => workspace.settings(args, signal),
-    start: (args, signal) => { if (args.action === 'analyze') throw new Error('请在建图对话发送预填请求。'); return workspace.start(args, { signal }); },
+    start: (args, signal) => workspace.start(args, { signal }),
     tasks: args => workspace.tasks(args),
     task: args => workspace.getTask(args.id),
     evaluation: args => workspace.latestEvaluation(args),
@@ -110,16 +111,16 @@ export function apply(ctx, config = {}) {
   }
   ctx.tools.register({
     name: 'skillnet_route',
-    description: '按需为当前任务选择并加载本地技能。需要在多个候选中比较、选择互补技能，或用户要求推荐技能时调用。query 应包含原任务的目标、输入、输出和约束。默认使用当前对话模型，无需建图或向量配置；libraryId 省略时使用上次选择的技能库，首次使用默认个人库。工具等待路由结果，并通过当前 Agent 的原生 skill 工具加载完整指令；返回后直接继续原任务，无需切换页面、选择目标对话或再次加载。若一个技能已明显匹配，直接用原生 skill 工具即可。向量检索可显式选择 vector，沿用原有配置与索引检查。',
-    parameters: { type: 'object', properties: { query: { type: 'string', minLength: 1 }, libraryId: { type: 'string', description: '可选，skillnet_workspaces 返回的库 ID。' }, k: { type: 'integer', minimum: 1, maximum: 20, default: 5 }, retrievalMode: { type: 'string', enum: ['model', 'vector'], default: 'model' } }, required: ['query'], additionalProperties: false },
+    description: '按需为当前任务选择并加载本地技能。需要比较候选、选择互补技能或用户要求推荐技能时调用。query 应包含目标、输入、输出和约束。默认使用当前对话模型，有匹配且最新的向量索引时使用 SkillNet SDK 向量路由，否则从当前技能库选技。用户指定库名时，使用已核实的对应 libraryId；未知时先调用 skillnet_workspaces 按名称查找。只有用户未指定库时才可省略 libraryId。仅需推荐名单、技能 ID 或路由评测时设置 loadSkills=false。默认通过原生 skill 工具加载指令并继续原任务。',
+    parameters: { type: 'object', properties: { query: { type: 'string', minLength: 1 }, loadSkills: { type: 'boolean', description: '默认 true。只查询推荐名单时设为 false。' }, libraryId: { type: 'string', description: '用户指定库时必填，使用 skillnet_workspaces 返回的对应 ID。' }, k: { type: 'integer', minimum: 1, maximum: 20, default: 5 }, retrievalMode: { type: 'string', enum: ['auto', 'model', 'vector'], default: 'auto' } }, required: ['query'], additionalProperties: false },
     output: { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => [
-      { type: 'text', text: JSON.stringify({ query: value.query, skills: value.skills, next: value.next }, null, 2) },
+      { type: 'text', text: JSON.stringify({ library: value.library, query: value.query, skills: value.skills, next: value.next }, null, 2) },
       ...value.loaded.flatMap(skill => skill.content),
     ] },
     timeoutMs: 360_000,
     execute: (args, execution) => workspace.routeConversation(args, execution, native),
   });
-  ctx.systemPrompt.section({ name: 'skillnet:routing', order: 60, interpolate: false, text: '当 skillnet_route 工具可用时：用户要求为任务选技能，或你需要比较多个候选、组合互补技能，可以在当前对话按需调用它。将原任务的目标、输入、期望产物和限制整理为 query；不要求用户转到插件页面重复输入。工具会返回选择理由和已由原生 skill 工具加载的完整指令，随后在本对话继续原任务，不要只汇报匹配结果就结束，不要另发一条用户消息或另开执行对话。已有明显匹配的单个技能直接原生加载即可；普通聊天、简单修改以及已完成路由的同一任务不必重复路由。没有合适技能时继续原任务，不自动安装或创建技能。' });
+  ctx.systemPrompt.section({ name: 'skillnet:routing', order: 60, interpolate: false, text: '当 skillnet_route 工具可用时：用户要求为任务选技能，或你需要比较多个候选、组合互补技能，可以在当前对话按需调用它。将原任务的目标、输入、期望产物和限制整理为 query；不要求用户转到插件页面重复输入。用户只要推荐结果、技能 ID 或明确要求只做路由时，传 loadSkills=false 并按要求报告结果。需要执行任务时沿用默认加载方式，读取返回的完整指令后在本对话继续。已有明显匹配的单个技能直接原生加载即可；普通聊天、简单修改以及已完成路由的同一任务不必重复路由。没有合适技能时继续原任务，不自动安装或创建技能。' });
   for (const [name, description, properties, required, execute] of [
     ['skillnet_analyze', '领取当前这一步的建图任务（包含判断规范、带行号的技能源码、输出 schema 和进度）。按返回的 task.guide 和 task.system 分析后，通过 skillnet_analyze_submit 提交结果。', {}, [], (_args, execution) => workspace.analysisConversation.step({}, execution)],
     ['skillnet_analyze_submit', '提交当前步骤的 stepId 和结构化 result 对象。校验通过后会保存结果并返回下一步任务；如果返回 needs_correction，根据反馈修改当前步骤后重新提交；返回 completed 表示全部完成并已更新图谱。', { stepId: { type: 'string' }, result: { type: 'object', additionalProperties: true, description: '符合当前 task.schema 的 JSON 对象。' } }, ['stepId', 'result'], (args, execution) => workspace.analysisConversation.step(args, execution)],
@@ -142,6 +143,13 @@ export function apply(ctx, config = {}) {
     });
   }
   ctx.tools.register({ name: 'skillnet_workspaces', description: 'List connected local SkillNet libraries and their ids for analyze, route and evaluate.', parameters: { type: 'object', properties: {}, additionalProperties: false }, output: { schema: { type: 'array', items: { type: 'object', additionalProperties: true } }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] }, execute: () => workspace.listLibraries() });
+  if (existsSync(reviewSampleFile)) ctx.tools.register({
+    name: 'skillnet_review_sample',
+    description: '仅在用户明确要求对比 High 和 Off 时，启动固定小样本关系复核。使用当前对话模型，两组读取同一图谱的样本，结果保存在独立报告中。用 job_output 读取结果。',
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+    output: { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
+    execute: (_args, execution) => workspace.reviewSample(execution),
+  });
   for (const [action, description, properties, required] of [
     ['search', 'Search the hosted SkillNet catalog for reusable agent skills. Returns original source URLs and descriptions. Use when asked to find a skill; loading remains the native skill tool\'s responsibility.', searchProperties, ['q']],
     ['inspect', 'Inspect a SkillNet skill through the official SDK. Returns SKILL.md, all file names and structural validation. Keeps an uninstalled staging copy. Install through the SkillNet panel; use the native skill tool to load installed instructions.', { url: { type: 'string', description: 'The exact skill_url from a SkillNet result.' } }, ['url']],

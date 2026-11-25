@@ -7,7 +7,7 @@ from pathlib import Path
 
 from skillnet_ai import analyzer as sdk
 from skillnet_ai.core.models import AnalysisOptions, AnalyzedSkill, GraphSnapshot, RelationJudgment, SkillProfile, SkillSource
-from skillnet_ai.core.prompts import PROFILE_PROMPT, PROFILE_VERSION, RELATION_PROMPT, RELATION_VERSION
+from skillnet_ai.core.prompts import PROFILE_PROMPT, PROFILE_VERSION, RELATION_VERSION
 from skillnet_ai.core.validation import validate_profile
 from skillnet_ai.router.index import build_bm25, publish
 from skillnet_ai.router.wiki import materialize_wiki, numbered
@@ -35,15 +35,18 @@ def pointer(index):
     return f'flat:{flat.stat().st_mtime_ns}' if flat.exists() else None
 
 
-def configuration(request, client):
+def configuration(request, client, options=None):
     from host_adapter import host_client
     from skillnet_ai.core.config import model_endpoint
 
     mode = request.get('retrievalMode', 'model')
     if mode not in ('model', 'vector'):
         raise ValueError('请选择仅使用模型或向量检索模式。')
-    options = AnalysisOptions(timeout=120, json_mode=client.settings.json_mode if client.settings.json_mode != 'auto' else 'on')
-    endpoint = model_endpoint(host_client({'_host_model': request['modelSelection']}).settings, 'analysis')
+    if options is None:
+        options = AnalysisOptions(timeout=120, json_mode=client.settings.json_mode if client.settings.json_mode != 'auto' else 'on')
+    selection = request.get('modelSelection')
+    settings = host_client({'_host_model': selection}).settings if selection else client.settings
+    endpoint = model_endpoint(settings, 'analysis')
     embedding = model_endpoint(client.settings, 'embedding') if mode == 'vector' else None
     config = {'mode': mode, 'model_key': [endpoint.base_url, endpoint.model, options.json_mode, options.reasoning_effort],
               'embedding_key': [embedding.base_url, embedding.model] if embedding else None,
@@ -268,11 +271,12 @@ def execute(request, client):
         guide = (
             f'当前步骤：判断「{first.skill_id}」（源码 {first_lines} 行）与「{second.skill_id}」（源码 {second_lines} 行）之间是否存在可组合或相似关系。'
             '请按 system 中的 SkillNet 规范判断，并将符合 schema 的 JSON 对象作为 result 参数传给 skillnet_analyze_submit 提交，不要只在聊天文本里输出 JSON。'
-            '无关系时提交 {"decision": {"outcome": "none", "reason": "..."}}；有关系时提交 {"decision": {"outcome": "related", "relations": [...]}}。'
+            '请直接填写 decision。无关系填 outcome="none" 和 reason，有关系填 outcome="related" 和 relations。'
             '注意：两份源码各自独立从第 1 行编号，source_evidence 必须对应 source 指定的技能，target_evidence 必须对应 target 指定的技能。'
             f'{OUTPUT_LANGUAGE_GUIDE}'
         )
-        return {**pending, 'system': RELATION_PROMPT, 'guide': guide,
+        from prompts import RELATION_SINGLE_SYSTEM
+        return {**pending, 'system': RELATION_SINGLE_SYSTEM, 'guide': guide,
                 'payload': {'skills': [{'skill_id': s.skill_id, 'profile': s.profile.model_dump(), 'source': numbered(s.source)} for s in (first, second)],
                             'retrieval_hints': pair['hints']},
                 'schema': sdk.relation_schema(first, second)}
@@ -311,6 +315,9 @@ def execute(request, client):
                     state['profiles'][source.skill_id] = value.model_dump()
                 else:
                     first, second, key = relation_data(state['pairs'][pending['pairIndex']])
+                    # Strip only the protocol field; validate all SDK fields as before.
+                    if isinstance(raw_result, dict):
+                        raw_result = {k: v for k, v in raw_result.items() if k != 'brief'}
                     value = RelationJudgment.model_validate(raw_result)
                     check_relation_lines(value, first, second)
                     edges = sdk.normalize_relations(value, first, second)

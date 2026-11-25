@@ -59,7 +59,20 @@ def execute(request):
         return {"fields": settings.public(), "checks": local_checks(settings)}
     if action == "local-library":
         from skillnet_ai.web.library import read_library
+        import hashlib
+        index = Path(request.get('indexPath') or Path(request['sourcePath']) / '.skillnet')
+        current = index / 'CURRENT'
+        revision = current.read_text(encoding='utf8').strip() if current.is_file() else None
         data = read_library(request["sourcePath"], request.get("indexPath"))
+        if data['graph'] and data['addedSkills'] and revision and Path(revision).name == revision and revision.startswith('snapshot-'):
+            meta = index / revision / 'analysis-config.json'
+            if meta.is_file() and current.read_text(encoding='utf8').strip() == revision:
+                pending = json.loads(meta.read_text(encoding='utf8')).get('pending_profiles', {})
+                graphed = {skill['skill_id'] for skill in data['graph']['skills']}
+                known = [skill['id'] for skill in data['source']['skills'] if skill['id'] not in graphed
+                         and pending.get(skill['id']) == hashlib.sha256(skill['source'].encode()).hexdigest()]
+                data['pendingProfiles'] = known
+                data['addedSkills'] -= len(known)
         if data.get('analysisError'):
             data['analysisError'] = chinese_message(data['analysisError'])
         data['warnings'] = [chinese_message(item) for item in data['warnings']]
@@ -75,21 +88,20 @@ def execute(request):
     if action == 'analysis-plan':
         from conversation_analysis import plan as analysis_plan
         return analysis_plan(request, client)
+    if action == 'review-sample':
+        if not request.get('_host_model'):
+            raise ValueError('复核小样本需要 DSH 模型。')
+        from host_adapter import review_sample
+        return review_sample(request)
     if action in ('analyze', 'route') and request.get('retrievalMode', 'model') not in ('model', 'vector'):
         raise ValueError('请选择仅使用模型或向量检索模式。')
     if action == "analyze":
         from skillnet_ai import AnalysisOptions
-        options = AnalysisOptions(max_workers=request.get("max_workers", 2), timeout=120, json_mode=client.settings.json_mode if client.settings.json_mode != "auto" else "on")
-        if request.get('_host_model'):
-            from host_adapter import analyze
-            result = analyze(request, options)
-        elif request.get('retrievalMode', 'model') == 'model':
-            from model_mode import analyze
-            from skillnet_ai.core.config import model_endpoint
-            result = analyze(request['sourcePath'], request.get('indexPath'), endpoint=model_endpoint(client.settings, 'analysis'), options=options)
-        else:
-            result = client.analyze(request["sourcePath"], output_dir=request.get("indexPath"), options=options)
-        return {"index_dir": str(result.index_dir), "skill_count": result.skill_count, "relation_counts": result.relation_counts, "cache_hits": result.cache_hits, "retrieval_mode": request.get('retrievalMode', 'model')}
+        from graph_build import analyze
+        workers = min(request.get('max_workers', 2), 4) if request.get('_host_model') else request.get('max_workers', 8)
+        options = AnalysisOptions(max_workers=workers, timeout=120, embedding_batch_size=32,
+                                  json_mode=client.settings.json_mode if client.settings.json_mode != "auto" else "on")
+        return analyze(request, client, options)
     if action == "route":
         if request.get('retrievalMode', 'model') == 'vector':
             from skillnet_ai.router.index import load_snapshot

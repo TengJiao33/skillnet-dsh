@@ -5,7 +5,7 @@ import type { ModelTarget } from './operations'
 import { CreatePage } from './CreatePage'
 import { preloadWorkspace } from './upstream/src/useWorkspace'
 import { api } from './api'
-import { openSkillDraft, openAnalysisDraft } from './chatDraft'
+import { openSkillDraft } from './chatDraft'
 import type { SkillDraft, AnalysisDraft } from './chatDraft'
 import { Catalog } from './pages'
 import { Select } from './Select'
@@ -36,14 +36,14 @@ function Settings() {
   </form></main>
 }
 
-function Panel({ onUseSkill, onAnalyze, onOpenAnalysis }: { onUseSkill: (selection: SkillDraft) => void, onAnalyze: (draft: AnalysisDraft) => void, onOpenAnalysis: (sessionId: string) => void }) {
+function Panel({ onUseSkill }: { onUseSkill: (selection: SkillDraft) => void }) {
   const [target, setTarget] = useState<ModelTarget>({})
   const [tab, setTab] = useState('workbench')
   const [preview, setPreview] = useState<any>(null)
   useEffect(() => { const listen = (event: Event) => { setPreview((event as CustomEvent).detail); setTab('discover') }; window.addEventListener('skillnet-preview', listen); return () => window.removeEventListener('skillnet-preview', listen) }, [])
   const navigation = <nav className="dsh-nav" aria-label="SkillNet"><button aria-current={tab === 'workbench' ? 'page' : undefined} onClick={() => setTab('workbench')}>我的技能库</button><button aria-current={tab === 'discover' ? 'page' : undefined} onClick={() => setTab('discover')}>发现</button><button aria-current={tab === 'create' ? 'page' : undefined} onClick={() => setTab('create')}>创建</button><button aria-current={tab === 'settings' ? 'page' : undefined} onClick={() => setTab('settings')}>设置</button></nav>
   return <div data-skillnet-build={__SKILLNET_BUILD__} className={`skillnet-shell ${tab !== 'workbench' ? 'dsh-other-page' : ''}`}><style>{css}</style>
-    <LibraryWorkbench logo={logo} headerActions={navigation} active={tab === 'workbench'} target={target} onTarget={setTarget} onUseSkill={onUseSkill} onAnalyze={onAnalyze} onOpenAnalysis={onOpenAnalysis} />
+    <LibraryWorkbench logo={logo} headerActions={navigation} active={tab === 'workbench'} target={target} onTarget={setTarget} onUseSkill={onUseSkill} />
     {tab === 'discover' && <Catalog preview={preview} target={target} clearPreview={() => setPreview(null)} />}
     {tab === 'create' && <CreatePage target={target} onTarget={setTarget} />}{tab === 'settings' && <Settings />}
   </div>
@@ -70,5 +70,5 @@ export function apply(ctx: any) {
   })
   void preloadWorkspace().catch(() => {})
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: 'skillnet', order: 10, label: 'SkillNet' }, ({ size }: { size?: number }) => <SkillNetIcon size={size} />))
-  ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'skillnet' }, () => <Panel onUseSkill={selection => openSkillDraft(ctx, selection)} onAnalyze={draft => openAnalysisDraft(ctx, draft)} onOpenAnalysis={sessionId => ctx.uiWorkspace.openSession(sessionId)} />))
+  ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'skillnet' }, () => <Panel onUseSkill={selection => openSkillDraft(ctx, selection)} />))
 }

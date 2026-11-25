@@ -14,7 +14,7 @@ function EvaluationReport({ task }: { task: any }) {
 
 export type ModelTarget = { sessionId?: string, modelSource?: string }
 
-export function ModelChoice({ value, onChange, onLoad }: { value: ModelTarget, onChange: (value: ModelTarget) => void, onLoad?: (contexts: any) => void }) {
+export function ModelChoice({ value, onChange, onLoad, showRefresh = true }: { value: ModelTarget, onChange: (value: ModelTarget) => void, onLoad?: (contexts: any) => void, showRefresh?: boolean }) {
   const [contexts, setContexts] = useState<any>(null)
   const [error, setError] = useState('')
   async function load() { try { const value = await api('model-context'); setContexts(value); onLoad?.(value); setError('') } catch (e: any) { setError(e.message) } }
@@ -26,10 +26,10 @@ export function ModelChoice({ value, onChange, onLoad }: { value: ModelTarget, o
     <option value="">DSH 默认模型{model ? ` / ${model.model}` : ''}</option>
     {contexts?.sessions.map((item: any) => <option key={item.sessionId} value={item.sessionId}>{item.title}{item.selection ? ` / ${item.selection.model}` : ''}</option>)}
     <option value="sdk">独立 API（高级）</option>
-  </Select></label><button type="button" onClick={() => void load()}>刷新对话</button>{error && <span role="alert">{error}</span>}</div>
+  </Select></label>{showRefresh && <button type="button" onClick={() => void load()}>刷新对话</button>}{error && <span role="alert">{error}</span>}</div>
 }
 
-export function TaskList({ revision, latestTaskId, sourcePath, onlyAction, skillId, enabled = true, compact = false, onUse, onComplete, onRunningChange, onSettled, onPick }: { revision: number, latestTaskId?: string, sourcePath?: string, onlyAction?: string, skillId?: string, enabled?: boolean, compact?: boolean, onUse?: (task: any) => void, onComplete?: (task: any) => void, onRunningChange?: (running: boolean) => void, onSettled?: (task: any) => void, onPick?: (id: string) => void }) {
+export function TaskList({ revision, latestTaskId, sourcePath, onlyAction, skillId, enabled = true, compact = false, onUse, onComplete, onRunningChange, onSettled, onPick, onViewGraph, onRetryRelations, retryDisabled }: { revision: number, latestTaskId?: string, sourcePath?: string, onlyAction?: string, skillId?: string, enabled?: boolean, compact?: boolean, onUse?: (task: any) => void, onComplete?: (task: any) => void, onRunningChange?: (running: boolean) => void, onSettled?: (task: any) => void, onPick?: (id: string) => void, onViewGraph?: () => void, onRetryRelations?: (id: string) => void, retryDisabled?: boolean }) {
   const [tasks, setTasks] = useState<any[]>([])
   const [detail, setDetail] = useState<any>(null)
   const [evaluation, setEvaluation] = useState<any>(null)
@@ -50,7 +50,8 @@ export function TaskList({ revision, latestTaskId, sourcePath, onlyAction, skill
       try {
         const result = await api('tasks', { limit: 30, sourcePath, action: onlyAction, skillId }, controller.signal)
         if (controller.signal.aborted) return
-        const values = result.items.filter((task: any) => ['running', 'stopping'].includes(task.status) || task.id === latestTaskId || pending.current.has(task.id))
+        const latest = latestTaskId ?? (onlyAction === 'analyze' ? result.items[0]?.id : undefined)
+        const values = result.items.filter((task: any) => ['running', 'stopping'].includes(task.status) || task.id === latest || pending.current.has(task.id))
         const running = values.filter((task: any) => ['running', 'stopping'].includes(task.status))
         setTasks(running)
         if (persistentEvaluation) {
@@ -122,7 +123,26 @@ export function TaskList({ revision, latestTaskId, sourcePath, onlyAction, skill
         <div className="dsh-create-draft-footer">{draft.validation?.valid === false && <span className="dsh-create-invalid">结构校验未通过</span>}<button type="button" disabled={Boolean(previewing)} onClick={() => void previewDraft(detail.id, draft.name)}>{previewing === draft.name ? '正在打开…' : '查看草稿'}</button></div>
       </article>)}
       {detail.result?.warning && <p role="alert">{detail.result.warning}</p>}
-      {detail.action === 'analyze' && detail.result && <div><p>已分析 {detail.result.skill_count} 个技能</p><div className="dsh-row"><span>可组合 {detail.result.relation_counts?.compose_with || 0}</span><span>相似 {detail.result.relation_counts?.similar_to || 0}</span><button onClick={() => complete.current?.(detail)}>查看关系图</button></div>{!compact && <p className="dsh-path">{detail.result.index_dir}</p>}</div>}
+      {detail.action === 'analyze' && detail.result && <div>
+        <p>图谱已发布 · {detail.result.skill_count} 个技能</p>
+        <div className="dsh-row">
+          {onViewGraph && <button onClick={onViewGraph}>查看关系图</button>}
+          <span>可组合 {detail.result.relation_counts?.compose_with || 0}</span><span>相似 {detail.result.relation_counts?.similar_to || 0}</span>
+        </div>
+        {detail.result.pending_profiles?.length > 0 && <p>画像待补：{detail.result.pending_profiles.join('、')}。</p>}
+        {detail.result.pending_relations > 0 && <details>
+          <summary>还有 {detail.result.pending_relations} 对候选未能判断</summary>
+          {onRetryRelations && <button disabled={retryDisabled} onClick={() => onRetryRelations(detail.id)}>重试这 {detail.result.pending_relations} 对</button>}
+        </details>}
+        {detail.result.seconds && <details>
+          <summary>{detail.result.retried_candidates ? '复核' : '建图'}耗时 · {Math.round(detail.result.seconds.total)} 秒</summary>
+          {detail.result.retried_candidates ? <p>本次仅复核 {detail.result.retried_candidates} 对候选。</p> : <>
+            <p>画像 {Math.round(detail.result.seconds.profiles)} 秒，向量与候选 {Math.round(detail.result.seconds.retrieval)} 秒{(detail.result.model_calls?.screen || detail.result.screened_out) > 0 && `，初筛 ${Math.round(detail.result.seconds.screen)} 秒`}，关系复核 {Math.round(detail.result.seconds.relations)} 秒。</p>
+            <p>共 {detail.result.candidate_pairs} 对候选{detail.result.screened_out > 0 && `，初筛排除 ${detail.result.screened_out} 对`}。</p>
+          </>}
+        </details>}
+        {!compact && <p className="dsh-path">{detail.result.index_dir}</p>}
+      </div>}
       {detail.action === 'evaluate' && detail.result && <EvaluationReport task={detail} />}
     </section>}
     {evaluation && <EvaluationReport task={evaluation} />}

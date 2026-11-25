@@ -1867,6 +1867,10 @@ function App({ logoUrl = "/skillnet.png", headerActions, renderActions, renderOp
     dataset,
     selectedSkill,
     selectSkill,
+    showGraph: () => {
+      setViewMode("graph");
+      requestAnimationFrame(() => graphCanvas.current?.scrollIntoView({ block: "nearest" }));
+    },
     refresh: () => {
       if (currentLibrary) void openLocalLibrary(currentLibrary);
     }
@@ -2382,7 +2386,7 @@ function EvaluationReport({ task }) {
     ] }, key))
   ] });
 }
-function ModelChoice({ value, onChange, onLoad }) {
+function ModelChoice({ value, onChange, onLoad, showRefresh = true }) {
   const [contexts, setContexts] = (0, import_react8.useState)(null);
   const [error, setError] = (0, import_react8.useState)("");
   async function load() {
@@ -2416,11 +2420,11 @@ function ModelChoice({ value, onChange, onLoad }) {
         /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("option", { value: "sdk", children: "独立 API（高级）" })
       ] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", onClick: () => void load(), children: "刷新对话" }),
+    showRefresh && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", onClick: () => void load(), children: "刷新对话" }),
     error && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { role: "alert", children: error })
   ] });
 }
-function TaskList({ revision, latestTaskId, sourcePath, onlyAction, skillId, enabled = true, compact = false, onUse, onComplete, onRunningChange, onSettled, onPick }) {
+function TaskList({ revision, latestTaskId, sourcePath, onlyAction, skillId, enabled = true, compact = false, onUse, onComplete, onRunningChange, onSettled, onPick, onViewGraph, onRetryRelations, retryDisabled }) {
   const [tasks, setTasks] = (0, import_react8.useState)([]);
   const [detail, setDetail] = (0, import_react8.useState)(null);
   const [evaluation, setEvaluation] = (0, import_react8.useState)(null);
@@ -2446,7 +2450,8 @@ function TaskList({ revision, latestTaskId, sourcePath, onlyAction, skillId, ena
       try {
         const result = await api("tasks", { limit: 30, sourcePath, action: onlyAction, skillId }, controller.signal);
         if (controller.signal.aborted) return;
-        const values = result.items.filter((task) => ["running", "stopping"].includes(task.status) || task.id === latestTaskId || pending.current.has(task.id));
+        const latest = latestTaskId ?? (onlyAction === "analyze" ? result.items[0]?.id : void 0);
+        const values = result.items.filter((task) => ["running", "stopping"].includes(task.status) || task.id === latest || pending.current.has(task.id));
         const running = values.filter((task) => ["running", "stopping"].includes(task.status));
         setTasks(running);
         if (persistentEvaluation) {
@@ -2556,11 +2561,12 @@ function TaskList({ revision, latestTaskId, sourcePath, onlyAction, skillId, ena
       detail.result?.warning && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("p", { role: "alert", children: detail.result.warning }),
       detail.action === "analyze" && detail.result && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { children: [
         /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("p", { children: [
-          "已分析 ",
+          "图谱已发布 / ",
           detail.result.skill_count,
           " 个技能"
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "dsh-row", children: [
+          onViewGraph && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { onClick: onViewGraph, children: "查看关系图" }),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { children: [
             "可组合 ",
             detail.result.relation_counts?.compose_with || 0
@@ -2568,8 +2574,56 @@ function TaskList({ revision, latestTaskId, sourcePath, onlyAction, skillId, ena
           /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { children: [
             "相似 ",
             detail.result.relation_counts?.similar_to || 0
+          ] })
+        ] }),
+        detail.result.pending_profiles?.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("p", { children: [
+          "画像待补：",
+          detail.result.pending_profiles.join("、"),
+          "。"
+        ] }),
+        detail.result.pending_relations > 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("details", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("summary", { children: [
+            "还有 ",
+            detail.result.pending_relations,
+            " 对候选未能判断"
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { onClick: () => complete.current?.(detail), children: "查看关系图" })
+          onRetryRelations && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("button", { disabled: retryDisabled, onClick: () => onRetryRelations(detail.id), children: [
+            "重试这 ",
+            detail.result.pending_relations,
+            " 对"
+          ] })
+        ] }),
+        detail.result.seconds && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("details", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("summary", { children: [
+            detail.result.retried_candidates ? "复核" : "建图",
+            "耗时 / ",
+            Math.round(detail.result.seconds.total),
+            " 秒"
+          ] }),
+          detail.result.retried_candidates ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("p", { children: [
+            "本次仅复核 ",
+            detail.result.retried_candidates,
+            " 对候选。"
+          ] }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("p", { children: [
+              "画像 ",
+              Math.round(detail.result.seconds.profiles),
+              " 秒，向量与候选 ",
+              Math.round(detail.result.seconds.retrieval),
+              " 秒",
+              (detail.result.model_calls?.screen || detail.result.screened_out) > 0 && `，初筛 ${Math.round(detail.result.seconds.screen)} 秒`,
+              "，关系复核 ",
+              Math.round(detail.result.seconds.relations),
+              " 秒。"
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("p", { children: [
+              "共 ",
+              detail.result.candidate_pairs,
+              " 对候选",
+              detail.result.screened_out > 0 && `，初筛排除 ${detail.result.screened_out} 对`,
+              "。"
+            ] })
+          ] })
         ] }),
         !compact && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("p", { className: "dsh-path", children: detail.result.index_dir })
       ] }),
@@ -2706,47 +2760,15 @@ function ModelOperationDialog({ context, target, disabled, onClose, onConfirm })
     ] })
   ] }) });
 }
-function useAnalysisStatus(active, sourcePath) {
-  const [state, setState] = (0, import_react9.useState)(null);
-  (0, import_react9.useEffect)(() => {
-    if (!active || !sourcePath) return;
-    const controller = new AbortController();
-    let timer;
-    const poll = async () => {
-      try {
-        const next = await api("analysis-status", { sourcePath }, controller.signal);
-        if (controller.signal.aborted) return;
-        setState(next);
-      } catch {
-      }
-      if (!controller.signal.aborted) timer = setTimeout(poll, 2500);
-    };
-    void poll();
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [active, sourcePath]);
-  return state;
-}
-function GraphAction({ context, active, busy, onStart, onOpen }) {
-  const state = useAnalysisStatus(active, context.library?.sourcePath);
-  const completed = (0, import_react9.useRef)("");
-  (0, import_react9.useEffect)(() => {
-    if (state?.status === "completed" && completed.current !== state.sessionId) {
-      completed.current = state.sessionId;
-      context.refresh();
-    }
-  }, [state?.sessionId, state?.status, context.refresh]);
-  const running = state?.status === "running";
+function GraphAction({ context, busy, running, onStart }) {
   return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
     "button",
     {
       type: "button",
       className: "dsh-workbench-action dsh-graph-action",
-      title: running ? "打开建图对话" : "检查本次更新，有变化时准备建图草稿",
-      disabled: busy || !running && !context.localData?.source.skills.length,
-      onClick: running ? () => onOpen(state.sessionId) : onStart,
+      title: "检查技能库并启动后台建图",
+      disabled: busy || running || !context.localData?.source.skills.length,
+      onClick: onStart,
       children: [
         /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Share2, { size: 18, strokeWidth: 1.8, "aria-hidden": "true" }),
         busy ? "正在检查…" : running ? "建图中" : context.localData?.analysis ? "更新图谱" : "建图"
@@ -2754,8 +2776,8 @@ function GraphAction({ context, active, busy, onStart, onOpen }) {
     }
   );
 }
-function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUseSkill, onAnalyze, onOpenAnalysis }) {
-  const [retrievalMode, setRetrievalMode] = (0, import_react9.useState)("model");
+function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUseSkill }) {
+  const [retrievalMode, setRetrievalMode] = (0, import_react9.useState)("auto");
   const [latest, setLatest] = (0, import_react9.useState)({});
   const [busy, setBusy] = (0, import_react9.useState)({});
   const [running, setRunning] = (0, import_react9.useState)({});
@@ -2765,7 +2787,7 @@ function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUse
   const [modelsOpen, setModelsOpen] = (0, import_react9.useState)(false);
   const [useSelection, setUseSelection] = (0, import_react9.useState)(null);
   const [confirmation, setConfirmation] = (0, import_react9.useState)(null);
-  async function start(context, action) {
+  async function start(context, action, retryTaskId) {
     if (!context.library) return;
     const key = jobKey(context, action);
     if (starting.current.has(key)) return;
@@ -2774,25 +2796,16 @@ function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUse
     setErrors((value) => ({ ...value, [key]: "" }));
     setNotices((value) => ({ ...value, [key]: "" }));
     try {
-      if (action === "analyze") {
-        const draft = await api("analysis-draft", { ...target, sourcePath: context.library.sourcePath, retrievalMode });
-        if (draft.upToDate) {
-          setNotices((value) => ({ ...value, [key]: draft.message }));
-          return;
-        }
-        if (draft.alreadyRunning) {
-          onOpenAnalysis(draft.sessionId);
-          return;
-        }
-        onAnalyze(draft);
-        return;
-      }
       const task = await api("start", {
         ...target,
         action,
         sourcePath: context.library.sourcePath,
-        skillId: context.selectedSkill?.id
+        ...action === "analyze" ? { retrievalMode, retryTaskId } : { skillId: context.selectedSkill?.id }
       });
+      if (task.upToDate) {
+        setNotices((value) => ({ ...value, [key]: task.message }));
+        return;
+      }
       setLatest((value) => ({ ...value, [key]: task.id }));
       setRunning((value) => ({ ...value, [key]: true }));
     } catch (e) {
@@ -2817,6 +2830,9 @@ function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUse
           enabled: active,
           compact: true,
           onPick: context.selectSkill,
+          onViewGraph: context.showGraph,
+          onRetryRelations: (id) => void start(context, "analyze", id),
+          retryDisabled: !!busy[key] || !!running[key],
           onRunningChange: (active2) => setRunning((value) => value[key] === active2 ? value : { ...value, [key]: active2 }),
           onComplete: () => {
             setErrors((value) => ({ ...value, [key]: "" }));
@@ -2837,31 +2853,38 @@ function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUse
         renderOptions: (context) => context.library && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("details", { className: "dsh-workbench-tools", onToggle: (event) => setModelsOpen(event.currentTarget.open), children: [
           /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("summary", { children: "模型" }),
           /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "dsh-tools-body", children: [
-            modelsOpen && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(ModelChoice, { value: target, onChange: onTarget }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "dsh-tools-model-row", children: [
+              modelsOpen && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(ModelChoice, { value: target, onChange: onTarget, showRefresh: false }),
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "dsh-workbench-action dsh-tools-close", "aria-label": "关闭模型设置", title: "关闭模型设置", onClick: (event) => {
+                const panel = event.currentTarget.closest("details");
+                if (!panel) return;
+                panel.open = false;
+                panel.querySelector("summary")?.focus();
+              }, children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(X, { size: 18, "aria-hidden": "true" }) })
+            ] }),
             /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("label", { className: "collection-control", children: [
               /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "建图模式" }),
               /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(Select, { "aria-label": "建图模式", value: retrievalMode, onValueChange: (value) => setRetrievalMode(value), children: [
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("option", { value: "model", children: "仅使用模型（默认）" }),
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("option", { value: "vector", children: "向量检索（可选）" })
+                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("option", { value: "auto", children: "自动（优先向量）" }),
+                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("option", { value: "model", children: "仅使用模型" }),
+                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("option", { value: "vector", children: "向量检索" })
               ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { children: retrievalMode === "vector" ? "需要配置向量模型，并用此模式建图。" : "使用所选 DSH 模型建图，无需向量配置。" })
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { children: retrievalMode === "auto" ? "配置向量模型后使用 SkillNet SDK 建图。" : retrievalMode === "vector" ? "需要配置向量模型。" : "使用所选 DSH 模型和本地关键词筛选。" })
           ] })
         ] }),
         renderGraphActions: (context) => context.library && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
           GraphAction,
           {
             context,
-            active,
             busy: !!busy[jobKey(context, "analyze")],
-            onStart: () => void start(context, "analyze"),
-            onOpen: onOpenAnalysis
-          },
-          context.library.id
+            running: !!running[jobKey(context, "analyze")],
+            onStart: () => void start(context, "analyze")
+          }
         ),
         renderGraphResult: (context) => context.library && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
-          errors[jobKey(context, "analyze")] && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { className: "error-banner", role: "alert", children: errors[jobKey(context, "analyze")] }),
-          notices[jobKey(context, "analyze")] && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { className: "dsh-context-result", role: "status", children: notices[jobKey(context, "analyze")] })
+          notices[jobKey(context, "analyze")] && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { className: "dsh-context-result", role: "status", children: notices[jobKey(context, "analyze")] }),
+          tasks(context, "analyze")
         ] }),
         renderSkillActions: (context) => context.library && context.selectedSkill && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "dsh-skill-actions", role: "group", "aria-label": "当前技能操作", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("button", { className: "dsh-workbench-action", "aria-label": "使用此技能", title: "在 DSH 对话中使用", disabled: !context.localData?.source.skills.some((skill) => skill.id === context.selectedSkill.id), onClick: () => setUseSelection({ sourcePath: context.library.sourcePath, skillId: context.selectedSkill.id, names: [context.selectedSkill.name] }), children: [
           /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(ArrowUpRight, { size: 18, strokeWidth: 1.8, "aria-hidden": "true" }),
@@ -3015,19 +3038,6 @@ function openSkillDraft(ctx, selection) {
       whenDraftExists: "append"
     });
     if (result !== "applied") throw new Error("目标对话正在提交消息，请稍后再添加技能。");
-    ctx.uiWorkspace.openSession(selection.sessionId);
-  } finally {
-    retained.release();
-  }
-}
-function openAnalysisDraft(ctx, selection) {
-  const retained = ctx.sessions.retain(selection.sessionId, { source: "skillnet-analysis-draft" });
-  try {
-    const result = ctx.conversation.input.requestDraftInitialization(retained.binding, {
-      prompt: selection.prompt,
-      whenDraftExists: "append"
-    });
-    if (result !== "applied") throw new Error("建图对话正在提交消息，请稍后重试。");
     ctx.uiWorkspace.openSession(selection.sessionId);
   } finally {
     retained.release();
@@ -5296,6 +5306,8 @@ var skillnet_styles_default = `.skillnet-shell {
 .skillnet-shell .dsh-workbench-tools>summary{display:flex;align-items:center;justify-content:center;list-style:none;cursor:pointer;height:40px;padding:0 12px;border:1px solid #dce6e9;border-radius:7px;background:#fff;color:#5b6f7d;font-size:12px;white-space:nowrap}
 .skillnet-shell .dsh-workbench-tools>summary::-webkit-details-marker{display:none}
 .skillnet-shell .dsh-tools-body{position:absolute;right:0;top:calc(100% + 8px);z-index:30;width:min(600px,calc(100vw - 80px));padding:18px;border:1px solid #dce6e9;border-radius:10px;background:#fff;box-shadow:0 12px 30px rgba(16,48,69,.14)}
+.skillnet-shell .dsh-tools-model-row{display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:start;gap:12px}
+.skillnet-shell .dsh-tools-model-row>.dsh-tools-close{grid-column:2;width:44px;padding:0}
 .skillnet-shell .dsh-tools-body>.dsh-row{margin-top:16px}
 .skillnet-shell .dsh-tools-body>.collection-control{margin-top:16px;gap:12px}
 .skillnet-shell .dsh-tools-body>p{margin:12px 0 0;font-size:14px;line-height:1.6}
@@ -7542,6 +7554,8 @@ var skillnet_styles_default = `.skillnet-shell {
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-workbench-tools>summary{display:flex;align-items:center;justify-content:center;list-style:none;cursor:pointer;height:40px;padding:0 12px;border:1px solid var(--sn-border);border-radius:7px;background:var(--sn-surface);color:var(--sn-text-secondary);font-size:12px;white-space:nowrap}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-workbench-tools>summary::-webkit-details-marker{display:none}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-tools-body{position:absolute;right:0;top:calc(100% + 8px);z-index:30;width:min(600px,calc(100vw - 80px));padding:18px;border:1px solid var(--sn-border);border-radius:10px;background:var(--sn-surface);box-shadow:0 12px 30px var(--sn-shadow)}
+:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-tools-model-row{display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:start;gap:12px}
+:where(body[data-ds-dark-theme]) .skillnet-shell .dsh-tools-model-row>.dsh-tools-close{grid-column:2;width:44px;padding:0}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-tools-body>.dsh-row{margin-top:16px}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-tools-body>.collection-control{margin-top:16px;gap:12px}
 :where(body[data-ds-dark-theme]) .skillnet-shell .dsh-tools-body>p{margin:12px 0 0;font-size:14px;line-height:1.6}
@@ -8373,7 +8387,7 @@ function Settings() {
     ] })
   ] });
 }
-function Panel({ onUseSkill, onAnalyze, onOpenAnalysis }) {
+function Panel({ onUseSkill }) {
   const [target, setTarget] = (0, import_react12.useState)({});
   const [tab, setTab] = (0, import_react12.useState)("workbench");
   const [preview, setPreview] = (0, import_react12.useState)(null);
@@ -8391,9 +8405,9 @@ function Panel({ onUseSkill, onAnalyze, onOpenAnalysis }) {
     /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { "aria-current": tab === "create" ? "page" : void 0, onClick: () => setTab("create"), children: "创建" }),
     /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { "aria-current": tab === "settings" ? "page" : void 0, onClick: () => setTab("settings"), children: "设置" })
   ] });
-  return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { "data-skillnet-build": "0.5.0-workspace-title.1", className: `skillnet-shell ${tab !== "workbench" ? "dsh-other-page" : ""}`, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { "data-skillnet-build": "0.5.0-sdk-analysis.6", className: `skillnet-shell ${tab !== "workbench" ? "dsh-other-page" : ""}`, children: [
     /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("style", { children: skillnet_styles_default }),
-    /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(LibraryWorkbench, { logo: skillnet_logo_default, headerActions: navigation, active: tab === "workbench", target, onTarget: setTarget, onUseSkill, onAnalyze, onOpenAnalysis }),
+    /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(LibraryWorkbench, { logo: skillnet_logo_default, headerActions: navigation, active: tab === "workbench", target, onTarget: setTarget, onUseSkill }),
     tab === "discover" && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(Catalog, { preview, target, clearPreview: () => setPreview(null) }),
     tab === "create" && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(CreatePage, { target, onTarget: setTarget }),
     tab === "settings" && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(Settings, {})
@@ -8407,7 +8421,7 @@ function apply(ctx) {
     let timer;
     const report = async () => {
       try {
-        await api("client-ready", { revision: "0.5.0-workspace-title.1" }, AbortSignal.timeout(5e3));
+        await api("client-ready", { revision: "0.5.0-sdk-analysis.6" }, AbortSignal.timeout(5e3));
       } catch {
         if (!stopped) timer = setTimeout(report, 1500);
       }
@@ -8427,7 +8441,7 @@ function apply(ctx) {
   void preloadWorkspace().catch(() => {
   });
   ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({ name: "sidebar.panellist", id: "skillnet", order: 10, label: "SkillNet" }, ({ size }) => /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(SkillNetIcon, { size })));
-  ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: "skillnet" }, () => /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(Panel, { onUseSkill: (selection) => openSkillDraft(ctx, selection), onAnalyze: (draft) => openAnalysisDraft(ctx, draft), onOpenAnalysis: (sessionId) => ctx.uiWorkspace.openSession(sessionId) })));
+  ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: "skillnet" }, () => /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(Panel, { onUseSkill: (selection) => openSkillDraft(ctx, selection) })));
 }
 /*! Bundled license information:
 

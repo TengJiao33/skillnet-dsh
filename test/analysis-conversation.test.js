@@ -42,7 +42,7 @@ async function finish(f, value) {
   return value;
 }
 
-test('native graph steps survive process restart, retain SDK prompts/schema and publish only after every validation', async t => {
+test('native graph steps survive process restart, retain the current prompts and schema and publish only after every validation', async t => {
   const f = await fixture(t);
   // Every backend call starts a fresh Python worker, exercising on-disk resume.
   const first = await f.step();
@@ -54,7 +54,7 @@ test('native graph steps survive process restart, retain SDK prompts/schema and 
   assert.ok(first.task.schema.properties.capability.properties.evidence.items.properties.line.maximum >= 6);
   assert.match(first.task.guide, /skillnet_analyze_submit/);
   assert.match(first.task.guide, /简体中文/);
-  const prompts = JSON.parse(spawnSync(pythonExecutable(), ['-c', 'import json; from skillnet_ai.core.prompts import PROFILE_PROMPT, RELATION_PROMPT; print(json.dumps([PROFILE_PROMPT, RELATION_PROMPT]))'], { encoding: 'utf8' }).stdout);
+  const prompts = JSON.parse(spawnSync(pythonExecutable(), ['-c', 'import json, sys; sys.path.insert(0, "python"); from skillnet_ai.core.prompts import PROFILE_PROMPT; from prompts import RELATION_SINGLE_SYSTEM; print(json.dumps([PROFILE_PROMPT, RELATION_SINGLE_SYSTEM]))'], { encoding: 'utf8' }).stdout);
   assert.equal(first.task.system, prompts[0]);
   const initialState = JSON.parse(await readFile(join(f.request.runPath, 'analysis.json')));
   await assert.rejects(readFile(join(f.request.indexPath, 'CURRENT')), { code: 'ENOENT' });
@@ -69,6 +69,8 @@ test('native graph steps survive process restart, retain SDK prompts/schema and 
   assert.equal(relation.task.system, prompts[1]);
   assert.match(relation.task.guide, /简体中文/);
   assert.ok(relation.task.schema.properties.decision.anyOf);
+  assert.deepEqual(relation.task.schema.required, ['decision']);
+  assert.doesNotMatch(relation.task.system + relation.task.guide, /\bbrief\b/);
   await assert.rejects(readFile(join(f.request.indexPath, 'CURRENT')), { code: 'ENOENT' });
   const result = await finish(f, relation);
   assert.equal(result.result.skill_count, 2);

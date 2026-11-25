@@ -37,6 +37,24 @@ export function createHostModel(ctx) {
     if (!selection?.provider || !selection?.model) throw new Error('请先在 DSH 选择可用模型，或在面板选择已有对话。');
     return { selection: { ...selection }, sessionId: parent?.id || null };
   }
+  async function reasoningEfforts(model, signal) {
+    const { selection } = model;
+    signal?.throwIfAborted();
+    let info;
+    try {
+      info = await ctx.llm?.resolveModelInfo?.(selection.provider, selection.model, signal);
+    } catch {
+      signal?.throwIfAborted();
+      return [];
+    }
+    signal?.throwIfAborted();
+    return info?.reasoning?.efforts?.map(effort => effort.id) ?? [];
+  }
+  async function forRelationReview(model, signal) {
+    const offered = await reasoningEfforts(model, signal);
+    const reasoningEffort = ['low', 'off'].find(level => offered.includes(level));
+    return reasoningEffort ? { ...model, selection: { ...model.selection, reasoningEffort } } : model;
+  }
   async function conversation(sessionId, signal) {
     const agent = await agentFor(sessionId, signal);
     const messages = ctx.sessions.get(agent.id).deriveMessages().filter(message => ['user', 'assistant'].includes(message.role)).map(message => ({ role: message.role, text: textBlocks(message) })).filter(message => message.text);
@@ -109,11 +127,15 @@ export function createHostModel(ctx) {
         const code = failure.code ? `（${plain(failure.code)}）` : '';
         throw new Error(`DSH 模型 ${plain(model.selection.model)} 调用失败${code}：${plain(failure.message || '未收到模型回复。').slice(0, 2000)}`);
       }
-      if (reason?.kind === 'max-tokens' || ['max-tokens', 'length'].includes(finish?.reason?.kind)) throw new Error('DSH 模型输出达到长度上限，结果被截断，请调整所选模型的输出上限后重试。');
+      if (reason?.kind === 'max-tokens' || ['max-tokens', 'length'].includes(finish?.reason?.kind)) {
+        if (request.format === 'relation-lines' && last) return { content: textBlocks(last.data.message), truncated: true, sessionId };
+        if (request.expect_json) return { content: '', truncated: true, sessionId };
+        throw new Error('DSH 模型输出达到长度上限，结果被截断，请调整所选模型的输出上限后重试。');
+      }
       if (finish?.reason && finish.reason.kind !== 'stop') throw new Error(`DSH 模型输出未完整结束（${plain(finish.reason.kind)}）。`);
-      if (!ending || reason?.kind !== 'completed' || !last || last.data.interrupted) throw new Error(`DSH 模型任务已中断，未获得完整结果（${plain(reason?.kind || '缺少结束事件')}${!last ? '，没有助手回复' : last.data.interrupted ? '，回复被中断' : ''}）。`);
-      const content = textBlocks(last.data.message);
-      if (!content.trim()) throw new Error('DSH 模型没有返回文本结果。');
+      if (!ending || reason?.kind !== 'completed' || last?.data.interrupted || (!last && !request.expect_json)) throw new Error(`DSH 模型任务已中断，未获得完整结果（${plain(reason?.kind || '缺少结束事件')}${!last ? '，没有助手回复' : last.data.interrupted ? '，回复被中断' : ''}）。`);
+      const content = last ? textBlocks(last.data.message) : '';
+      if (!content.trim() && !request.expect_json) throw new Error('DSH 模型没有返回文本结果。');
       return { content, sessionId };
     } catch (error) {
       throw failure(error);
@@ -128,5 +150,5 @@ export function createHostModel(ctx) {
     await agent.followup(userMessage(prompt));
     return { sessionId: agent.id, accepted: true };
   }
-  return { contexts, capture, invoke, conversation, agentFor, use };
+  return { contexts, capture, reasoningEfforts, forRelationReview, invoke, conversation, agentFor, use };
 }

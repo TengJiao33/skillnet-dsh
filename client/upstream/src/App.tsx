@@ -44,6 +44,7 @@ export interface WorkbenchContext {
   dataset: Dataset
   selectedSkill: Skill | undefined
   selectSkill: (id: string) => void
+  showGraph: () => void
   refresh: () => void
 }
 
@@ -236,6 +237,10 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
   const currentLibrary = localLibraries.find((item) => item.id === collection)
   const analysisLibrary = currentLibrary && (!compactControls || hasCustomAnalysisDirectory(currentLibrary)) ? currentLibrary : undefined
   const workbenchContext: WorkbenchContext = { library: currentLibrary, localData, dataset, selectedSkill, selectSkill,
+    showGraph: () => {
+      setViewMode('graph')
+      requestAnimationFrame(() => graphCanvas.current?.scrollIntoView({ block: 'nearest' }))
+    },
     refresh: () => { if (currentLibrary) void openLocalLibrary(currentLibrary) } }
 
   return (

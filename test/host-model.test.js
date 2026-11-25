@@ -66,6 +66,26 @@ test('cancellation during task persistence never starts a new model turn', async
   assert.equal(starts, 0); assert.equal(disposed, 1);
 });
 
+test('relation review selects only supported efforts in low, off, then original order', async () => {
+  const original = { selection: { provider: 'custom', model: 'same-model', reasoningEffort: 'high' }, sessionId: 'parent' };
+  const signal = AbortSignal.timeout(1000);
+  for (const [levels, expected] of [
+    [['off', 'high', 'low'], 'low'], [['off', 'high'], 'off'], [['high', 'max'], 'high'], [[], 'high'],
+  ]) {
+    const host = createHostModel({ llm: { async resolveModelInfo(provider, model, requestedSignal) {
+      assert.deepEqual([provider, model, requestedSignal], ['custom', 'same-model', signal]);
+      return levels.length ? { reasoning: { efforts: levels.map(id => ({ id })) } } : {};
+    } } });
+    const selected = await host.forRelationReview(original, signal);
+    assert.deepEqual(selected, { ...original, selection: { ...original.selection, reasoningEffort: expected } });
+    assert.equal(original.selection.reasoningEffort, 'high');
+  }
+  const unconfigured = createHostModel({});
+  const providerDefault = { selection: { provider: 'custom', model: 'same-model' } };
+  assert.equal(await unconfigured.forRelationReview(providerDefault), providerDefault);
+  await assert.rejects(unconfigured.forRelationReview(original, AbortSignal.abort()), /abort/i);
+});
+
 test('conversation extraction is explicit, bounded, and never resumes a cold session', async () => {
   let resumed = 0;
   const messages = [{ role: 'system', content: [{ type: 'text', text: 'private system' }] }, { role: 'tool', content: [{ type: 'text', text: 'private tool' }] }, ...Array.from({ length: 26 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: [{ type: 'text', text: i === 25 ? 'api_key=secret-fixture-value' : `任务消息 ${i}` }] }))];
@@ -131,5 +151,13 @@ test('real DSH chunk wrappers preserve truncated-output detection', async () => 
       { type: 'turn/end', data: { reason: { kind: 'max-tokens' } } },
     ] }) },
   });
-  await assert.rejects(model.invoke({ selection: { provider: 'fixture', model: 'current' } }, { method: 'chat', system: 'schema', prompt: 'task' }, AbortSignal.timeout(1000)), /结果被截断/);
+  const selection = { selection: { provider: 'fixture', model: 'current' } };
+  const request = { method: 'chat', system: 'schema', prompt: 'task' };
+  await assert.rejects(model.invoke(selection, request, AbortSignal.timeout(1000)), /结果被截断/);
+  const response = await model.invoke(selection, { ...request, expect_json: true }, AbortSignal.timeout(1000));
+  assert.equal(response.content, '');
+  assert.equal(response.truncated, true);
+  const batch = await model.invoke(selection, { ...request, expect_json: true, format: 'relation-lines' }, AbortSignal.timeout(1000));
+  assert.equal(batch.content, '{"partial":');
+  assert.equal(batch.truncated, true);
 });

@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ArrowUpRight, ListChecks, Share2 } from 'lucide-react'
+import { ArrowUpRight, ListChecks, Share2, X } from 'lucide-react'
 import App from './upstream/src/App'
 import type { WorkbenchContext } from './upstream/src/App'
 import { api } from './api'
 import { Select } from './Select'
 import { ModelChoice, TaskList } from './operations'
 import type { ModelTarget } from './operations'
-import type { SkillDraft, AnalysisDraft } from './chatDraft'
+import type { SkillDraft } from './chatDraft'
 
 type UseSelection = { sourcePath: string, skillId: string, names: string[] }
 
@@ -101,48 +101,19 @@ function ModelOperationDialog({ context, target, disabled, onClose, onConfirm }:
   </dialog>
 }
 
-function useAnalysisStatus(active: boolean, sourcePath?: string) {
-  const [state, setState] = useState<any>(null)
-  useEffect(() => {
-    if (!active || !sourcePath) return
-    const controller = new AbortController()
-    let timer: ReturnType<typeof setTimeout>
-    const poll = async () => {
-      try {
-        const next = await api('analysis-status', { sourcePath }, controller.signal)
-        if (controller.signal.aborted) return
-        setState(next)
-      } catch { /* A temporarily unavailable host does not erase the graph. */ }
-      if (!controller.signal.aborted) timer = setTimeout(poll, 2500)
-    }
-    void poll()
-    return () => { controller.abort(); clearTimeout(timer) }
-  }, [active, sourcePath])
-  return state
-}
-
-function GraphAction({ context, active, busy, onStart, onOpen }: {
-  context: WorkbenchContext, active: boolean, busy: boolean, onStart: () => void, onOpen: (sessionId: string) => void
+function GraphAction({ context, busy, running, onStart }: {
+  context: WorkbenchContext, busy: boolean, running: boolean, onStart: () => void
 }) {
-  const state = useAnalysisStatus(active, context.library?.sourcePath)
-  const completed = useRef('')
-  useEffect(() => {
-    if (state?.status === 'completed' && completed.current !== state.sessionId) {
-      completed.current = state.sessionId
-      context.refresh()
-    }
-  }, [state?.sessionId, state?.status, context.refresh])
-  const running = state?.status === 'running'
   return <button type="button" className="dsh-workbench-action dsh-graph-action"
-    title={running ? '打开建图对话' : '检查本次更新，有变化时准备建图草稿'}
-    disabled={busy || (!running && !context.localData?.source.skills.length)} onClick={running ? () => onOpen(state.sessionId) : onStart}>
+    title="检查技能库并启动后台建图"
+    disabled={busy || running || !context.localData?.source.skills.length} onClick={onStart}>
     <Share2 size={18} strokeWidth={1.8} aria-hidden="true" />
     {busy ? '正在检查…' : running ? '建图中' : context.localData?.analysis ? '更新图谱' : '建图'}
   </button>
 }
 
-export function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUseSkill, onAnalyze, onOpenAnalysis }: { logo: string, headerActions: ReactNode, active: boolean, target: ModelTarget, onTarget: (value: ModelTarget) => void, onUseSkill: (selection: SkillDraft) => void, onAnalyze: (draft: AnalysisDraft) => void, onOpenAnalysis: (sessionId: string) => void }) {
-  const [retrievalMode, setRetrievalMode] = useState<'model' | 'vector'>('model')
+export function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUseSkill }: { logo: string, headerActions: ReactNode, active: boolean, target: ModelTarget, onTarget: (value: ModelTarget) => void, onUseSkill: (selection: SkillDraft) => void }) {
+  const [retrievalMode, setRetrievalMode] = useState<'auto' | 'model' | 'vector'>('auto')
   const [latest, setLatest] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<Record<string, boolean>>({})
   const [running, setRunning] = useState<Record<string, boolean>>({})
@@ -152,21 +123,15 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
   const [modelsOpen, setModelsOpen] = useState(false)
   const [useSelection, setUseSelection] = useState<UseSelection | null>(null)
   const [confirmation, setConfirmation] = useState<{ context: WorkbenchContext, action: 'evaluate' } | null>(null)
-  async function start(context: WorkbenchContext, action: 'analyze' | 'evaluate') {
+  async function start(context: WorkbenchContext, action: 'analyze' | 'evaluate', retryTaskId?: string) {
     if (!context.library) return
     const key = jobKey(context, action)
     if (starting.current.has(key)) return
     starting.current.add(key); setBusy(value => ({ ...value, [key]: true })); setErrors(value => ({ ...value, [key]: '' })); setNotices(value => ({ ...value, [key]: '' }))
     try {
-      if (action === 'analyze') {
-        const draft = await api('analysis-draft', { ...target, sourcePath: context.library.sourcePath, retrievalMode })
-        if (draft.upToDate) { setNotices(value => ({ ...value, [key]: draft.message })); return }
-        if (draft.alreadyRunning) { onOpenAnalysis(draft.sessionId); return }
-        onAnalyze(draft)
-        return
-      }
       const task = await api('start', { ...target, action, sourcePath: context.library.sourcePath,
-        skillId: context.selectedSkill?.id })
+        ...(action === 'analyze' ? { retrievalMode, retryTaskId } : { skillId: context.selectedSkill?.id }) })
+      if (task.upToDate) { setNotices(value => ({ ...value, [key]: task.message })); return }
       setLatest(value => ({ ...value, [key]: task.id }))
       setRunning(value => ({ ...value, [key]: true }))
     } catch (e: any) { setErrors(value => ({ ...value, [key]: e.message })) }
@@ -178,6 +143,9 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
       {errors[key] && <p className="error-banner" role="alert">{errors[key]}</p>}
       <TaskList key={key} revision={0} latestTaskId={latest[key]} sourcePath={context.library?.sourcePath} onlyAction={action} skillId={action === 'evaluate' ? context.selectedSkill?.id : undefined} enabled={active} compact
         onPick={context.selectSkill}
+        onViewGraph={context.showGraph}
+        onRetryRelations={id => void start(context, 'analyze', id)}
+        retryDisabled={!!busy[key] || !!running[key]}
         onRunningChange={active => setRunning(value => value[key] === active ? value : { ...value, [key]: active })}
         onComplete={() => { setErrors(value => ({ ...value, [key]: '' })); if (action === 'analyze') context.refresh() }} />
     </div>
@@ -186,16 +154,24 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
     <App compactControls logoUrl={logo} headerActions={headerActions}
       renderOptions={context => context.library && <details className="dsh-workbench-tools" onToggle={event => setModelsOpen(event.currentTarget.open)}>
         <summary>模型</summary><div className="dsh-tools-body">
-          {modelsOpen && <ModelChoice value={target} onChange={onTarget} />}
-          <label className="collection-control"><span>建图模式</span><Select aria-label="建图模式" value={retrievalMode} onValueChange={value => setRetrievalMode(value as 'model' | 'vector')}>
-            <option value="model">仅使用模型（默认）</option><option value="vector">向量检索（可选）</option>
+          <div className="dsh-tools-model-row">
+            {modelsOpen && <ModelChoice value={target} onChange={onTarget} showRefresh={false} />}
+            <button type="button" className="dsh-workbench-action dsh-tools-close" aria-label="关闭模型设置" title="关闭模型设置" onClick={event => {
+              const panel = event.currentTarget.closest('details')
+              if (!panel) return
+              panel.open = false
+              panel.querySelector('summary')?.focus()
+            }}><X size={18} aria-hidden="true" /></button>
+          </div>
+          <label className="collection-control"><span>建图模式</span><Select aria-label="建图模式" value={retrievalMode} onValueChange={value => setRetrievalMode(value as typeof retrievalMode)}>
+            <option value="auto">自动（优先向量）</option><option value="model">仅使用模型</option><option value="vector">向量检索</option>
           </Select></label>
-          <p>{retrievalMode === 'vector' ? '需要配置向量模型，并用此模式建图。' : '使用所选 DSH 模型建图，无需向量配置。'}</p>
+          <p>{retrievalMode === 'auto' ? '配置向量模型后使用 SkillNet SDK 建图。' : retrievalMode === 'vector' ? '需要配置向量模型。' : '使用所选 DSH 模型和本地关键词筛选。'}</p>
         </div>
       </details>}
-      renderGraphActions={context => context.library && <GraphAction key={context.library.id} context={context} active={active}
-        busy={!!busy[jobKey(context, 'analyze')]} onStart={() => void start(context, 'analyze')} onOpen={onOpenAnalysis} />}
-      renderGraphResult={context => context.library && <>{errors[jobKey(context, 'analyze')] && <p className="error-banner" role="alert">{errors[jobKey(context, 'analyze')]}</p>}{notices[jobKey(context, 'analyze')] && <p className="dsh-context-result" role="status">{notices[jobKey(context, 'analyze')]}</p>}</>}
+      renderGraphActions={context => context.library && <GraphAction context={context}
+        busy={!!busy[jobKey(context, 'analyze')]} running={!!running[jobKey(context, 'analyze')]} onStart={() => void start(context, 'analyze')} />}
+      renderGraphResult={context => context.library && <>{notices[jobKey(context, 'analyze')] && <p className="dsh-context-result" role="status">{notices[jobKey(context, 'analyze')]}</p>}{tasks(context, 'analyze')}</>}
       renderSkillActions={context => context.library && context.selectedSkill && <div className="dsh-skill-actions" role="group" aria-label="当前技能操作">
         <button className="dsh-workbench-action" aria-label="使用此技能" title="在 DSH 对话中使用" disabled={!context.localData?.source.skills.some(skill => skill.id === context.selectedSkill!.id)} onClick={() => setUseSelection({ sourcePath: context.library!.sourcePath, skillId: context.selectedSkill!.id, names: [context.selectedSkill!.name] })}><ArrowUpRight size={18} strokeWidth={1.8} aria-hidden="true" />使用</button>
       </div>}

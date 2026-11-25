@@ -87,11 +87,19 @@ function createLibraryReader(subprocess, config) {
 
 export function createBackend(subprocess, config = {}) {
   const reader = createLibraryReader(subprocess, config);
-  const run = async (request, callerSignal, invokeHost) => {
-    const deadline = AbortSignal.timeout(['analyze', 'create', 'evaluate'].includes(request.action) ? 3_600_000 : request.action === 'analysis-step' ? 600_000 : request.action === 'route' ? 720_000 : request.action === 'inspect' ? 180_000 : 30_000);
-    const rpcAbort = new AbortController();
-    const signal = AbortSignal.any([deadline, rpcAbort.signal, ...(callerSignal ? [callerSignal] : [])]);
+  const run = async (request, callerSignal, invokeHost, onProgress) => {
     const bridged = Boolean(request._host_model);
+    const report = request.action === 'analyze' && typeof onProgress === 'function';
+    const streamed = bridged || report;
+    const rpcAbort = new AbortController();
+    const signals = [rpcAbort.signal, ...(callerSignal ? [callerSignal] : [])];
+    // A large background build is cancellable and has per-request timeouts.
+    // A whole-build deadline would also abort healthy, progressing builds.
+    if (request.action !== 'analyze' || !bridged) {
+      const timeout = ['analyze', 'create', 'evaluate', 'review-sample'].includes(request.action) ? 3_600_000 : request.action === 'analysis-step' ? 600_000 : request.action === 'route' ? 720_000 : request.action === 'inspect' ? 180_000 : 30_000;
+      signals.push(AbortSignal.timeout(timeout));
+    }
+    const signal = AbortSignal.any(signals);
     if (bridged && !invokeHost) throw new Error('DSH 模型通道尚未连接。');
     signal.throwIfAborted();
     if (request.action === 'local-library') return reader.read(request, signal);
@@ -100,32 +108,52 @@ export function createBackend(subprocess, config = {}) {
       argv: [executable, join(root, 'python/worker.py')],
       cwd: root,
       stdio: {
-        stdin: bridged ? 'pipe' : { data: JSON.stringify(request) + '\n' },
-        stdout: bridged ? 'pipe' : { maxBytes: 24 * 1024 * 1024 },
+        stdin: streamed ? 'pipe' : { data: JSON.stringify(request) + '\n' },
+        stdout: streamed ? 'pipe' : { maxBytes: 24 * 1024 * 1024 },
         stderr: { maxBytes: 16 * 1024 },
       },
       env: { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
       graceMs: 500,
       signal,
     });
+    const pending = new Map();
     try {
-      if (bridged) {
-        let result, hostBusy = false;
+      if (streamed) {
+        let result, activeModels = 0;
+        const modelLimit = request.action === 'analyze' && request.max_workers === 4 ? 4 : 2;
         handle.stdin.on('error', () => rpcAbort.abort(new Error('模型通信进程已退出。')));
         const send = value => new Promise((resolve, reject) => handle.stdin.write(JSON.stringify(value) + '\n', 'utf8', error => error ? reject(error) : resolve()));
-        await send(request);
-        const completion = handle.done.then(() => { if (hostBusy) rpcAbort.abort(new Error('SkillNet 后端提前退出。')); });
+        await send(report ? { ...request, _progress: true } : request);
+        const completion = handle.done.then(() => { if (activeModels) rpcAbort.abort(new Error('SkillNet 后端提前退出。')); });
+        const respond = async call => {
+          let reply;
+          activeModels++;
+          try { reply = { ok: true, data: await invokeHost(call, signal) }; }
+          catch (error) {
+            signal.throwIfAborted();
+            reply = { ok: false, error: error.message };
+          } finally { activeModels--; }
+          signal.throwIfAborted();
+          await send({ id: call.id, ...reply });
+        };
         const lines = createInterface({ input: handle.stdout, crlfDelay: Infinity });
         const read = (async () => {
           for await (const line of lines) {
             if (Buffer.byteLength(line) > 24 * 1024 * 1024) throw new Error('模型通信数据超过大小限制。');
             const value = JSON.parse(line);
-            if (value.type === 'host-call') {
-              if (!['chat', 'explore'].includes(value.method) || typeof value.system !== 'string' || typeof value.prompt !== 'string') throw new Error('模型通信请求无效。');
-              hostBusy = true;
-              try { await send({ ok: true, data: await invokeHost(value, signal) }); }
-              catch (error) { if (signal.aborted) throw error; await send({ ok: false, error: error.message }); }
-              finally { hostBusy = false; }
+            if (report && value.type === 'relation-progress' && Number.isSafeInteger(value.remaining) && value.remaining > 0) {
+              onProgress(`正在复核剩余 ${value.remaining} 对候选`);
+            } else if (bridged && value.type === 'host-call') {
+              if (typeof value.id !== 'string' || pending.has(value.id) || !['chat', 'explore'].includes(value.method) ||
+                  typeof value.system !== 'string' || typeof value.prompt !== 'string' || activeModels >= modelLimit) {
+                throw new Error('模型通信请求无效或超过并发上限。');
+              }
+              const work = respond(value);
+              pending.set(value.id, work);
+              void work.then(() => pending.delete(value.id), error => {
+                pending.delete(value.id);
+                rpcAbort.abort(error);
+              });
             } else { result = value; handle.stdin.end(); }
           }
         })();
@@ -148,8 +176,10 @@ export function createBackend(subprocess, config = {}) {
       return result.data;
     } finally {
       rpcAbort.abort(new Error('SkillNet 操作已结束。'));
-      await handle.terminate();
-      await handle.waitForExit();
+      try {
+        await handle.terminate();
+        await handle.waitForExit();
+      } finally { await Promise.allSettled(pending.values()); }
     }
   };
   run.dispose = () => reader.dispose();

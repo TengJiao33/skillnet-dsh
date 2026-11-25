@@ -3,6 +3,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import { createHash, randomUUID } from 'node:crypto';
 import { createTaskStore } from './task-store.js';
 import { createAnalysisConversation } from './analysis-conversation.js';
+import { createAnalysisPacer } from './analysis-pacing.js';
 import { managedLibraryInfo } from './library.js';
 
 const secrets = ['api_key', 'embedding_api_key', 'explorer_api_key', 'github_token'];
@@ -10,6 +11,7 @@ const fields = ['base_url', 'model', 'embedding_base_url', 'embedding_model', 'e
 const settingNames = { api_key: '分析模型 API 密钥', embedding_api_key: '向量模型 API 密钥', embedding_base_url: '向量模型地址', embedding_model: '向量模型名称', explorer_api_key: 'DSH 探索器 API 密钥', explorer_base_url: 'DeepSeek Messages 地址', explorer_model: '探索器模型名称' };
 const actionNames = { analyze: '建图', route: '任务路由', create: '创建技能', evaluate: '评估技能' };
 const personalLibraryName = 'DSH 个人技能库';
+export const reviewSampleFile = new URL('../.local/relation-review-sample.json', import.meta.url);
 const credential = key => `DSH_SKILLNET_${key.toUpperCase()}`;
 const same = (a, b) => Boolean(a && b) && (process.platform === 'win32' ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b));
 const text = (value, name, limit = 100_000) => {
@@ -34,7 +36,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
     await writeFile(temporary, JSON.stringify(value, null, 2));
     await rename(temporary, path);
   };
-  async function configured(request, signal, invokeHost) {
+  async function configured(request, signal, invokeHost, onProgress) {
     if (request.action === 'local-library') return run(request, signal);
     if (request.action === 'discover') {
       const { skillnet_api_url } = await read('settings.json', {});
@@ -49,8 +51,8 @@ export function createWorkspace(ctx, run, library, hostModel) {
       const found = await ctx.credentials.resolve(credential(key));
       if (found) settings[key] = found.value;
     }
-    if (request._host_model || ['analysis-step', 'analysis-plan'].includes(request.action)) { delete settings.api_key; delete settings.explorer_api_key; }
-    return run({ ...request, _settings: settings }, signal, invokeHost);
+    if (request._host_model || request.action === 'analysis-step' || (request.action === 'analysis-plan' && request.modelSelection)) { delete settings.api_key; delete settings.explorer_api_key; }
+    return run({ ...request, _settings: settings }, signal, invokeHost, onProgress);
   }
   async function settings(args = {}, signal) {
     if (args.values) await serial(async () => {
@@ -197,17 +199,43 @@ export function createWorkspace(ctx, run, library, hostModel) {
     if (!['analyze', 'route', 'create', 'evaluate'].includes(action)) throw new Error('未知的作业类型。');
     const item = action === 'create' ? null : await selected(args);
     const request = { action };
-    if (['analyze', 'route'].includes(action)) {
-      request.retrievalMode = args.retrievalMode ?? 'model';
-      if (!['model', 'vector'].includes(request.retrievalMode)) throw new Error('请选择仅使用模型或向量检索模式。');
+    let prior;
+    if (action === 'analyze' && args.retryTaskId) {
+      prior = await taskStore.get(args.retryTaskId, execution.agent?.id);
+      if (prior.action !== action || prior.libraryId !== item.id || !prior.result?.pending_relations) {
+        throw new Error('这个建图任务没有可重试的候选。');
+      }
+      request.retrySnapshot = prior.result.snapshot;
+      if (!request.retrySnapshot) {
+        // Older results have no snapshot ID. Only bind the latest published task.
+        const latest = await taskStore.list({ action, sourcePath: item.sourcePath, status: 'completed', limit: 1 });
+        if (latest.items[0]?.id !== prior.id) throw new Error('图谱已有更新，请查看最新建图结果。');
+        request.retrySnapshot = (await readFile(join(item.indexPath, 'CURRENT'), 'utf8')).trim();
+      }
     }
-    const host = hostModel && args.modelSource !== 'sdk' ? await hostModel.capture(execution, args.sessionId) : null;
+    if (['analyze', 'route'].includes(action)) {
+      request.retrievalMode = prior?.retrievalMode ?? args.retrievalMode ?? 'model';
+      if (!['auto', 'model', 'vector'].includes(request.retrievalMode)) throw new Error('请选择自动、仅使用模型或向量检索模式。');
+    }
+    let host;
+    if (prior) {
+      if (prior.model) {
+        const selection = { ...prior.model };
+        if (prior.relationReasoningEffort === 'default') delete selection.reasoningEffort;
+        else if (prior.relationReasoningEffort) selection.reasoningEffort = prior.relationReasoningEffort;
+        host = { selection, sessionId: prior.sessionId };
+      }
+    } else if (hostModel && args.modelSource !== 'sdk') {
+      host = await hostModel.capture(execution, args.sessionId);
+    }
     if (host) request._host_model = host.selection;
     if (item) Object.assign(request, { sourcePath: item.sourcePath, indexPath: item.indexPath });
+    let routeData;
     if (action === 'route') {
       request.query = text(args.query, '任务');
       request.k = Math.max(1, Math.min(20, Number(args.k) || 5));
       const data = await configured({ action: 'local-library', sourcePath: item.sourcePath, indexPath: item.indexPath }, execution.signal);
+      routeData = data;
       if (!data.source.skills.length) throw new Error('技能库中还没有可用技能。');
       if (request.retrievalMode === 'vector') {
         if (!data.graph || data.analysisError) throw new Error('请先启用向量检索并成功建图，再运行向量路由。');
@@ -236,9 +264,18 @@ export function createWorkspace(ctx, run, library, hostModel) {
     // Preflight endpoints before allocating a job. SDK validates each endpoint independently.
     const current = await settings({}, execution.signal);
     const vectors = ['embedding_api_key', 'embedding_base_url', 'embedding_model'];
+    if (request.retrievalMode === 'auto') {
+      const configuredVectors = vectors.every(key => current.fields[key]?.value);
+      const endpoint = value => String(value || '').replace(/\/+$/, '');
+      const routeIndex = routeData?.graph?.embedding_model &&
+        routeData.graph.embedding_model === current.fields.embedding_model?.value &&
+        endpoint(routeData.graph.embedding_base_url) === endpoint(current.fields.embedding_base_url?.value) &&
+        !routeData.analysisError && !routeData.changedSkills && !routeData.addedSkills && !routeData.removedSkills;
+      request.retrievalMode = configuredVectors && (action === 'analyze' || routeIndex) ? 'vector' : 'model';
+    }
     const required = [
       ...(!host ? action === 'route' ? ['explorer_api_key', 'explorer_base_url', 'explorer_model'] : ['api_key'] : []),
-      ...(request.retrievalMode === 'vector' ? vectors : []),
+      ...(request.retrievalMode === 'vector' && !prior ? vectors : []),
     ];
     const missing = required.filter(key => !current.fields[key]?.value);
     if (missing.length) throw new Error(`请先在设置中配置：${missing.map(key => settingNames[key] || key).join('、')}`);
@@ -250,11 +287,37 @@ export function createWorkspace(ctx, run, library, hostModel) {
     if (lock && locks.has(lock)) throw new Error('这个技能库正在建图。');
     if (lock) locks.add(lock);
     try {
+      let relationHost = lock ? host : null;
+      if (relationHost && !request.retrySnapshot) {
+        relationHost = (await hostModel.forRelationReview?.(host, execution.signal)) ?? host;
+      }
+      if (relationHost) {
+        request._host_model = relationHost.selection;
+        request.max_workers = 4;
+      }
+      if (lock && (request.retrySnapshot || host || args.modelSource === 'sdk')) {
+        const legacy = await analysisConversation.status({ libraryId: item.id });
+        if (legacy?.status === 'running') throw new Error('这个技能库正在建图。');
+        if (!request.retrySnapshot) {
+          const plan = await configured({ action: 'analysis-plan', sourcePath: item.sourcePath, indexPath: item.indexPath,
+            retrievalMode: request.retrievalMode, modelSelection: relationHost?.selection }, execution.signal);
+          execution.signal?.throwIfAborted();
+          if (plan.upToDate) {
+            locks.delete(lock);
+            return { upToDate: true, message: '图谱已是最新。', plan };
+          }
+        }
+      }
+      execution.signal?.throwIfAborted();
       const id = ctx.jobs.start({ kind: `skillnet-${action}`, label: `SkillNet ${actionNames[action]}${item ? ` / ${item.name}` : ''}`, owner: execution.agent?.id, outputLimitBytes: 24 * 1024,
         run(job) {
           const controller = new AbortController();
           const record = { id: job.id, action, skillId: action === 'evaluate' ? args.skillId : undefined, retrievalMode: request.retrievalMode, query: request.query, owner: execution.agent?.id, libraryId: item?.id, sourcePath: item?.sourcePath, model: host?.selection, sessionId: host?.sessionId, modelSessions: [], status: 'running', startedAt: new Date().toISOString() };
-          job.updateProgress(`正在${actionNames[action]}`);
+          if (relationHost) {
+            record.profileReasoningEffort = relationHost.selection.reasoningEffort ?? 'default';
+            record.relationReasoningEffort = record.profileReasoningEffort;
+          }
+          job.updateProgress(request.retrySnapshot ? '正在复核待判候选' : `正在${actionNames[action]}`);
           const done = (async () => {
             try {
               await taskStore.write(record);
@@ -262,7 +325,13 @@ export function createWorkspace(ctx, run, library, hostModel) {
               await mkdir(artifacts, { recursive: true });
               if (action === 'create') request.output_dir = join(artifacts, 'drafts');
               if (action === 'evaluate') request.cache_dir = join(artifacts, 'evaluation');
-              record.result = await configured(request, controller.signal, host ? (payload, signal) => hostModel.invoke(host, payload, signal, async id => { record.modelSessions.push(id); if (payload.label) job.updateProgress(`正在${payload.label}`); await taskStore.write(record); }) : undefined);
+              const invoke = host ? (payload, signal) => hostModel.invoke(relationHost ?? host, payload, signal, async id => {
+                record.modelSessions.push(id);
+                if (payload.label) job.updateProgress(`正在${payload.label}`);
+                if (action !== 'analyze') await taskStore.write(record);
+              }) : undefined;
+              const runModel = invoke && action === 'analyze' ? createAnalysisPacer(invoke, message => job.updateProgress(message)) : invoke;
+              record.result = await configured(request, controller.signal, runModel, action === 'analyze' ? message => job.updateProgress(message) : undefined);
               record.status = 'completed';
             } catch (error) {
               record.status = controller.signal.aborted ? 'killed' : 'failed';
@@ -277,7 +346,9 @@ export function createWorkspace(ctx, run, library, hostModel) {
             let result = record.result;
             if (result?.source_versions) { const { source_versions, ...visible } = result; result = visible; }
             if (result?.drafts) result = { ...result, drafts: result.drafts.map(({ name, path, validation }) => ({ name, path, validation })) };
-            return { status: record.status, detail: record.error, result: JSON.stringify({ ...record, result }) };
+            const visibleRecord = { ...record, result };
+            if (action === 'analyze') delete visibleRecord.modelSessions;
+            return { status: record.status, detail: record.error, result: JSON.stringify(visibleRecord) };
           })();
           return { done, cancel: () => controller.abort() };
         },
@@ -291,6 +362,78 @@ export function createWorkspace(ctx, run, library, hostModel) {
     const draft = task.result.drafts.find(d => d.name === args.name);
     if (!draft) throw new Error('草稿不存在。');
     return library.prepareLocal(draft.path, signal);
+  }
+  async function reviewSample(execution) {
+    let sample;
+    try {
+      sample = JSON.parse(await readFile(reviewSampleFile, 'utf8'));
+    } catch (error) {
+      if (error.code === 'ENOENT') throw new Error('还没有准备好的固定复核小样本。');
+      throw error;
+    }
+    const item = await selected({ libraryId: sample.libraryId });
+    const host = await hostModel.capture(execution);
+    const offered = await hostModel.reasoningEfforts(host, execution.signal);
+    if (!['high', 'off'].every(effort => offered.includes(effort))) {
+      throw new Error('请在支持 High 和 Off 的 DSH 模型对话里运行小样本。');
+    }
+    const request = { action: 'review-sample', indexPath: item.indexPath, sample, _host_model: host.selection };
+    const lock = process.platform === 'win32' ? item.indexPath.toLowerCase() : item.indexPath;
+    execution.signal?.throwIfAborted();
+    if (locks.has(lock)) throw new Error('该技能库已有建图或复核小样本作业在运行。');
+    locks.add(lock);
+    try {
+      const id = ctx.jobs.start({ kind: 'skillnet-review-sample', label: 'SkillNet 关系复核小样本', owner: execution.agent?.id,
+        outputLimitBytes: 24 * 1024, run(job) {
+          const controller = new AbortController();
+          const done = (async () => {
+            try {
+              const results = {};
+              for (const effort of ['high', 'off']) {
+                const selection = { ...host, selection: { ...host.selection, reasoningEffort: effort } };
+                let calls = 0;
+                job.updateProgress(effort.toUpperCase() + ' · 关系复核小样本');
+                const invoke = createAnalysisPacer((payload, signal) => {
+                  calls++;
+                  return hostModel.invoke(selection, payload, signal, () => job.updateProgress(effort.toUpperCase() + ' · ' + payload.label));
+                }, message => job.updateProgress(effort.toUpperCase() + ' · ' + message));
+                const started = performance.now();
+                const result = await run(request, controller.signal, invoke);
+                const seconds = (performance.now() - started) / 1000;
+                results[effort] = { ...result, calls, seconds: Math.round(seconds * 10) / 10,
+                  pairsPerMinute: Math.round(result.completed * 600 / seconds) / 10 };
+              }
+              const signature = decision => {
+                if (!decision) return 'unresolved';
+                if (decision.outcome === 'none') return 'none';
+                return decision.relations.map(edge => [edge.type, edge.source, edge.target].join(':')).sort().join(',');
+              };
+              const changed = results.high.pairs.flatMap((row, index) => {
+                const high = signature(row.decision);
+                const off = signature(results.off.pairs[index].decision);
+                return high === off ? [] : [{ skills: row.skills, high, off }];
+              });
+              const directory = join(root, 'artifacts', job.id);
+              await mkdir(directory, { recursive: true });
+              const report = join(directory, 'comparison.json');
+              await writeFile(report, JSON.stringify({ model: host.selection, sample, results, changed }, null, 2));
+              const metrics = ({ completed, calls, seconds, pairsPerMinute }) => ({ completed, calls, seconds, pairsPerMinute });
+              return { status: 'completed', result: JSON.stringify({ pairs: sample.pairs.length,
+                high: metrics(results.high), off: metrics(results.off), changed, report }) };
+            } catch (error) {
+              return controller.signal.aborted ? { status: 'killed', detail: '复核小样本已取消。' } : { status: 'failed', detail: error.message };
+            } finally {
+              locks.delete(lock);
+            }
+          })();
+          return { done, cancel: () => controller.abort() };
+        },
+      });
+      return { id, status: 'running', pairs: sample.pairs.length };
+    } catch (error) {
+      locks.delete(lock);
+      throw error;
+    }
   }
   async function routeContext(task, signal) {
     const item = await selected({ libraryId: task.libraryId });
@@ -312,21 +455,29 @@ export function createWorkspace(ctx, run, library, hostModel) {
     // An ordinary conversation does not need to open the panel to connect the
     // default library. An explicitly selected library still takes precedence.
     const libraryId = args.libraryId || (await connect(await config(), execution.signal)).connection.id;
-    const { item, request, host } = await prepare({ ...args, action: 'route', libraryId }, execution);
+    const { item, request, host } = await prepare({ ...args, action: 'route', libraryId, retrievalMode: args.retrievalMode ?? 'auto' }, execution);
     const result = await configured(request, execution.signal, (payload, signal) => hostModel.invoke(host, payload, signal));
     const { current } = await routeContext({ libraryId: item.id, retrievalMode: request.retrievalMode, result }, execution.signal);
-    const cwd = await ctx.workingDirectory.ensure(execution.agent, execution.signal);
+    execution.signal.throwIfAborted();
     const selected = [];
-    // Validate the effective native definitions for this Agent before loading
-    // any instructions. A project override must not silently replace a pick.
     for (const skill of result.skills) {
       const local = current.source.skills.find(value => value.id === skill.skill_id);
       if (!local) throw new Error('路由结果已过期，请重新运行。');
       const path = await realpath(local.path || join(item.sourcePath, local.id));
-      const expected = path.endsWith('SKILL.md') ? path : join(path, 'SKILL.md');
-      const entry = await native.get(local.name, { cwd, scope: execution.agent, signal: execution.signal });
-      if (!entry?.invocation?.modelInvocable || !same(entry.path, expected)) throw new Error(`技能 ${local.name} 尚未在当前对话生效，或被同名技能覆盖。请检查安装与调用权限。`);
-      selected.push({ ...skill, name: local.name, path: dirname(expected) });
+      selected.push({ ...skill, name: local.name, path: path.endsWith('SKILL.md') ? dirname(path) : path });
+    }
+    const library = { id: item.id, name: item.name };
+    if (args.loadSkills === false) {
+      return { library, query: request.query, skills: selected, loaded: [], usage: result.usage,
+        next: selected.length ? '按用户要求报告本次推荐结果。' : '未找到适合的技能。' };
+    }
+    // Validate every native definition before loading any instructions.
+    const cwd = await ctx.workingDirectory.ensure(execution.agent, execution.signal);
+    for (const skill of selected) {
+      const entry = await native.get(skill.name, { cwd, scope: execution.agent, signal: execution.signal });
+      if (!entry?.invocation?.modelInvocable || !same(entry.path, join(skill.path, 'SKILL.md'))) {
+        throw new Error(`路由已选中 ${selected.map(s => s.skill_id).join('、')}。技能 ${skill.name} 尚未在当前对话生效，或被同名技能覆盖。加载尚未开始，请勿重复路由。`);
+      }
     }
     const loaded = [];
     for (const skill of selected) {
@@ -336,7 +487,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
       if (!reply || reply.isError || reply.value?.name !== skill.name || !reply.value.content || !reply.content?.length) throw new Error(`未能在当前对话加载技能 ${skill.name}。${reply?.error?.message || ''}`);
       loaded.push({ name: skill.name, content: reply.content });
     }
-    return { query: request.query, skills: selected, loaded, usage: result.usage,
+    return { library, query: request.query, skills: selected, loaded, usage: result.usage,
       next: selected.length ? '已通过当前对话的原生 skill 工具加载以下完整指令。结合原任务继续执行，遵守用户要求；无需再次选对话、加载或路由。' : '未找到适合的技能。继续处理原任务，不要为了凑数选择技能或自动搜索、安装。' };
   }
   async function useRoute(args, native, signal) {
@@ -389,7 +540,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
     return lastPath ? { sourcePath: lastPath } : createDefault();
   }
   const analysisConversation = createAnalysisConversation(ctx, { root, selected, configured, hostModel, locks });
-  return { configured, start, analysisConversation, routeConversation, settings, listLibraries, connect, forget, tasks, getTask, latestEvaluation, publish, useRoute, useSkill, createDefault, createNamed, installTargets, install, config,
+  return { configured, start, reviewSample, analysisConversation, routeConversation, settings, listLibraries, connect, forget, tasks, getTask, latestEvaluation, publish, useRoute, useSkill, createDefault, createNamed, installTargets, install, config,
     async cancel(args) { const task = await getTask(args.id); if (!['running', 'stopping'].includes(task.status)) return task; await ctx.jobs.kill(task.id, task.owner, '已从 SkillNet 面板取消'); return getTask(task.id); },
   };
 }
