@@ -117,7 +117,9 @@
 .skillnet-shell .dsh-context-result:empty{display:none}
 .skillnet-shell .graph-panel-title{height:auto;min-height:72px;flex-wrap:wrap;gap:12px}
 .skillnet-shell .graph-panel-title>.dsh-workbench-action{margin-left:auto}
-.skillnet-shell .graph-panel>.dsh-context-result{flex:none;max-height:240px;overflow:auto;padding:0 16px}
+.skillnet-shell button.dsh-graph-history-button{min-height:32px;padding:4px 10px;font-size:13px;line-height:22px}
+.skillnet-shell .dsh-graph-toast{position:fixed;z-index:100;bottom:24px;right:24px;max-width:calc(100vw - 48px);padding:8px 12px;border:1px solid #dce6e9;border-radius:8px;background:#fff;color:#355266;box-shadow:0 6px 18px rgba(15,48,62,.16);pointer-events:none}
+.skillnet-shell .dsh-graph-history ul{margin:8px 0;padding-inline-start:20px}
 .skillnet-shell .inspector-content h2.skill-detail-name{font-size:24px;font-weight:700;line-height:1.35;letter-spacing:-.01em;margin-bottom:12px}
 .skillnet-shell .skill-detail-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .skillnet-shell .skill-detail-heading h2.skill-detail-name{flex:1;min-width:0;overflow-wrap:anywhere;margin:0}
@@ -152,6 +154,14 @@
 .skillnet-shell .dsh-use-task>textarea{width:100%;min-height:88px;resize:vertical;padding:12px;border:1px solid #dce6e9;border-radius:8px;font:400 14px/1.7 var(--sn-ui-font)}
 .skillnet-shell .dsh-use-dialog h3.dsh-use-skills{margin:0;font-size:24px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
 .skillnet-shell .dsh-use-dialog footer{justify-content:flex-end}
+.skillnet-shell .dsh-matching-dialog{box-sizing:border-box}
+.skillnet-shell .dsh-matching-heading{justify-content:space-between}
+.skillnet-shell .dsh-matching-dialog .dsh-matching-heading>button{min-width:36px;min-height:36px;padding:0}
+.skillnet-shell .dsh-matching-dialog .dsh-matchbar{margin:12px 0;gap:8px}
+.skillnet-shell .dsh-matching-dialog .dsh-matchbar>button.primary-button{background:#087b61;color:#fff;border-color:#087b61}
+.skillnet-shell .dsh-matching-dialog .dsh-batch-options{display:grid;gap:12px;margin:12px 0;padding:0;border:0}
+.skillnet-shell .dsh-batch-options>button{justify-self:start}
+.skillnet-shell .dsh-evaluation-warning{font-weight:600}
 .skillnet-shell .dsh-new-library-dialog{box-sizing:border-box;width:min(420px,calc(100vw - 32px))}
 .skillnet-shell .dsh-new-library-dialog input{width:100%;min-height:44px;padding:8px 12px;border:1px solid #dce6e9;border-radius:8px;background:#fff;color:inherit;font:inherit}
 .skillnet-shell .dsh-new-library-dialog button.dsh-new-library-submit{background:#087b61;color:#fff;border-color:#087b61}

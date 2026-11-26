@@ -246,8 +246,19 @@ export function useWorkspace() {
       if (library.id === collection) void openLocalLibrary(library)
       else setLocalLibraries(previous => previous.some(item => item.id === library.id) ? previous : [...previous, library])
     }
+    const navigate = (event: Event) => {
+      const connection = (event as CustomEvent).detail
+      if (!connection?.id || typeof connection.sourcePath !== 'string') return
+      const library = localLibraries.find(item => item.id === `local:${connection.id}` && comparablePath(item.sourcePath) === comparablePath(connection.sourcePath))
+      if (library) void openLocalLibrary(library)
+      else setError('该技能库已断开。请在管理中重新连接。')
+    }
     window.addEventListener('skillnet-library-changed', refresh)
-    return () => window.removeEventListener('skillnet-library-changed', refresh)
+    window.addEventListener('skillnet-open-library', navigate)
+    return () => {
+      window.removeEventListener('skillnet-library-changed', refresh)
+      window.removeEventListener('skillnet-open-library', navigate)
+    }
   })
   const createPersonalLibrary = () =>
     run(async (signal) => connect(await createDefaultLibrary(signal), signal))

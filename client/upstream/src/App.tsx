@@ -48,11 +48,12 @@ export interface WorkbenchContext {
   refresh: () => void
 }
 
-export default function App({ logoUrl = '/skillnet.png', headerActions, renderActions, renderOptions, renderGraphActions, renderGraphResult, renderSkillActions, renderSkillResult, compactControls = false }: {
+export default function App({ logoUrl = '/skillnet.png', headerActions, renderActions, renderOptions, renderLibraryManagement, renderGraphActions, renderGraphResult, renderSkillActions, renderSkillResult, compactControls = false }: {
   logoUrl?: string
   headerActions?: ReactNode
   renderActions?: (context: WorkbenchContext) => ReactNode
   renderOptions?: (context: WorkbenchContext) => ReactNode
+  renderLibraryManagement?: (closeMenu: () => void, context: WorkbenchContext) => ReactNode
   renderGraphActions?: (context: WorkbenchContext) => ReactNode
   renderGraphResult?: (context: WorkbenchContext) => ReactNode
   renderSkillActions?: (context: WorkbenchContext) => ReactNode
@@ -96,6 +97,25 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
   const skillList = useRef<HTMLDivElement>(null)
   const graphCanvas = useRef<HTMLDivElement>(null)
   const detailPanel = useRef<HTMLElement>(null)
+
+  function closeLibraryMenu() {
+    const menu = libraryMenu.current
+    if (!menu) return
+    menu.open = false
+    menu.querySelector('summary')?.focus()
+  }
+
+  useEffect(() => {
+    function closeOnOutsidePointer(event: PointerEvent) {
+      const menu = libraryMenu.current
+      const target = event.target
+      if (!menu?.open || !(target instanceof Node) || menu.contains(target)) return
+      if (target instanceof Element && target.closest('.sn-select-portal')) return
+      menu.open = false
+    }
+    document.addEventListener('pointerdown', closeOnOutsidePointer)
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer)
+  }, [])
 
   useEffect(() => {
     setSelectedRelationId(null)
@@ -282,9 +302,17 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
                 ))}
               </Select>
             </label>
-            <details className="local-library-menu" ref={libraryMenu}>
+            <details className="local-library-menu" ref={libraryMenu} onKeyDown={event => {
+              if (event.key === 'Escape' && event.currentTarget.open && !event.defaultPrevented) {
+                event.preventDefault(); event.stopPropagation(); closeLibraryMenu()
+              }
+            }}>
               <summary>{compactControls ? '管理' : '目录管理'}</summary>
               <div className="library-menu-panel">
+                <div className="library-menu-heading">
+                  <strong>目录管理</strong>
+                  <button type="button" className="library-menu-close" aria-label="关闭目录管理" onClick={closeLibraryMenu}><X size={16} aria-hidden="true" /></button>
+                </div>
                 {currentLibrary && (
                   <div className="library-menu-location">
                     <div className="library-menu-location-header">
@@ -363,6 +391,7 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
                     </button>
                   </div>
                 )}
+                {renderLibraryManagement && <div className="library-menu-group">{renderLibraryManagement(closeLibraryMenu, workbenchContext)}</div>}
               </div>
             </details>
             {renderOptions?.(workbenchContext)}

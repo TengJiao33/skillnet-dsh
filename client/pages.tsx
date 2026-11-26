@@ -3,6 +3,9 @@ import type { ReactNode } from 'react'
 import { ChevronDown, FolderGit2, Info, ListChecks, SlidersHorizontal, Star } from 'lucide-react'
 import { api } from './api'
 import { Select } from './Select'
+import type { SkillDraft, SkillDraftTarget } from './chatDraft'
+import { GraphUpdateLink, InstalledSkillUpdate, installationLocation, installationsFrom, notifyInstallationsChanged, useInstallationInventory } from './installationManagement'
+import type { Installation } from './installationManagement'
 const evaluationNames: Record<string, string> = { safety: '安全性', completeness: '完整性', executability: '可执行性', cost_awareness: '成本意识', maintainability: '可维护性' }
 const levels: Record<string, string> = { Good: '良好', Average: '一般', Poor: '较弱' }
 const evaluationText = (value: any) => levels[value?.level || value] || value?.level || String(value)
@@ -31,9 +34,26 @@ function repositoryUrl(source: string) {
 let initialCatalog: any = null
 let initialCatalogExpiresAt = 0
 let initialCatalogRequest: Promise<any> | null = null
+export function invalidateInitialCatalog() {
+  initialCatalog = null
+  initialCatalogExpiresAt = 0
+  initialCatalogRequest = null
+}
+
 function readInitialCatalog() {
   if (initialCatalog && Date.now() < initialCatalogExpiresAt) return Promise.resolve(initialCatalog)
-  if (!initialCatalogRequest) initialCatalogRequest = api('discover').then(value => { initialCatalog = value; initialCatalogExpiresAt = Date.now() + 300_000; return value }).finally(() => { initialCatalogRequest = null })
+  if (!initialCatalogRequest) {
+    const request = api('discover').then(value => {
+      if (initialCatalogRequest === request) {
+        initialCatalog = value
+        initialCatalogExpiresAt = Date.now() + 300_000
+      }
+      return value
+    }).finally(() => {
+      if (initialCatalogRequest === request) initialCatalogRequest = null
+    })
+    initialCatalogRequest = request
+  }
   return initialCatalogRequest
 }
 
@@ -50,7 +70,7 @@ function PackageDialog({ name, pending, onClose, children }: { name: string, pen
   </dialog>
 }
 
-export function Catalog({ preview, target, clearPreview }: { preview: any, target: { sessionId?: string }, clearPreview: () => void }) {
+export function Catalog({ preview, target, clearPreview, onUseSkill }: { preview: any, target: { sessionId?: string }, clearPreview: () => void, onUseSkill: (selection: SkillDraft) => void }) {
   const [query, setQuery] = useState('')
   const [searchMode, setSearchMode] = useState('auto')
   const [category, setCategory] = useState('')
@@ -61,8 +81,9 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
   const [result, setResult] = useState<any>(() => Date.now() < initialCatalogExpiresAt ? initialCatalog : null)
   const [browseBusy, setBrowseBusy] = useState(false)
   const [browseError, setBrowseError] = useState('')
-  const [library, setLibrary] = useState<any>(null)
+  const { inventory, error: inventoryError } = useInstallationInventory()
   const [detail, setDetail] = useState<any>(preview)
+  const [packageCopies, setPackageCopies] = useState<Installation[]>([])
   const [packageOpen, setPackageOpen] = useState(Boolean(preview))
   const [packageName, setPackageName] = useState(preview?.name || '')
   const [packageLoading, setPackageLoading] = useState(false)
@@ -83,13 +104,16 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
     if (!result) void browse()
     return () => { resultVersion.current++ }
   }, [])
-  async function refresh() { setLibrary(await api('library')) }
-  useEffect(() => { void refresh().catch(e => setError(e.message)) }, [])
   useEffect(() => {
-    if (preview) { packageController.current?.abort(); packageController.current = null; setDetail(preview); setPackageName(preview.name); setPackageError(''); setPackageLoading(false); setPackageAction('download'); setPackageOpen(true) }
+    if (preview) {
+      packageController.current?.abort(); packageController.current = null
+      setDetail(preview); setPackageName(preview.name); setPackageError(''); setPackageLoading(false)
+      setFile(null); setError(''); setNotice(''); setPackageCopies([]); setPackageAction('download'); setPackageOpen(true)
+    }
   }, [preview])
   const previewId = detail?.validation.valid ? detail.previewId : null
-  const forConversation = Boolean(preview?.installToPersonal)
+  const conversation = preview?.conversation as SkillDraftTarget | undefined
+  const forConversation = Boolean(conversation)
   useEffect(() => {
     setInstallTargets(null)
     if (!previewId) return
@@ -131,7 +155,7 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
     if (busy || packageController.current) return
     const controller = new AbortController()
     packageController.current = controller
-    setPackageName(name); setPackageAction(action); setPackageOpen(true); setPackageLoading(true); setPackageError(''); setDetail(null); setFile(null)
+    setPackageName(name); setPackageAction(action); setPackageOpen(true); setPackageLoading(true); setPackageError(''); setDetail(null); setFile(null); setPackageCopies([])
     await act(async () => {
       try {
         const value = await load(controller.signal)
@@ -142,11 +166,19 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
   }
   function closePackage() {
     packageController.current?.abort(); packageController.current = null
-    setPackageOpen(false); setPackageLoading(false); setDetail(null); setFile(null); clearPreview()
+    setPackageOpen(false); setPackageLoading(false); setDetail(null); setFile(null); setPackageCopies([]); clearPreview()
   }
-  function inspect(skill: any, action: 'view' | 'download' = 'view') {
-    const found = library?.installed.find((x: any) => x.state === 'installed' && x.url === skill.skill_url)
-    return openPackage(skill.skill_name, signal => found && action === 'view' ? api('installed', { id: found.id }, signal) : api('inspect', { url: skill.skill_url, catalog: skill }, signal), action)
+  function viewInstalled(record: Installation) {
+    return openPackage(record.name, signal => api('installed', { id: record.id }, signal))
+  }
+  function inspect(skill: any, copies: Installation[], action: 'view' | 'download' = 'view') {
+    if (action === 'view' && copies.length === 1) return viewInstalled(copies[0])
+    if (action === 'view' && copies.length > 1) {
+      setDetail(null); setPackageName(skill.skill_name); setPackageError(''); setFile(null)
+      setNotice(''); setError(''); setPackageCopies(copies); setPackageAction('view'); setPackageOpen(true)
+      return
+    }
+    return openPackage(skill.skill_name, signal => api('inspect', { url: skill.skill_url, catalog: skill }, signal), action)
   }
   const native = (value: any) => value?.effective ? value.modelInvocable || value.userInvocable ? 'DSH 可调用' : '已识别，当前预设禁用调用' : value?.available ? '存在同名覆盖' : 'DSH 尚未识别'
   const targetOptions = installTargets?.previewId === previewId ? installTargets : null
@@ -156,10 +188,22 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
     await act(async () => {
       const args = destination.id ? { previewId, libraryId: destination.id } : { previewId, scope: 'user' }
       const value = await api('install', args)
-      setDetail({ ...detail, previewId: null, installationId: value.id, native: value.native, record: value })
-      setNotice(`已安装到「${value.libraryName}」。${value.connectionWarning ? '技能库刷新失败：' + value.connectionWarning : ''}`)
-      window.dispatchEvent(new CustomEvent('skillnet-library-changed', { detail: value.connection }))
-      await refresh()
+      const graphUpdate = value.reused ? null : { connection: value.connection, libraryName: value.libraryName }
+      setDetail({ ...detail, previewId: null, installationId: value.id, native: value.native, record: value, graphUpdate })
+      const installed = value.reused ? `已复用「${value.libraryName}」中的同源技能。` : `已安装到「${value.libraryName}」。`
+      if (!conversation) setNotice(installed)
+      if (value.connectionWarning) setError(`技能库刷新失败：${value.connectionWarning}`)
+      notifyInstallationsChanged(value.connection)
+    })
+  }
+  async function addToConversation() {
+    if (!conversation || !detail?.installationId) return
+    const { sourcePath, skillId, sessionId } = conversation
+    await act(async () => {
+      const value = await api('skill-draft', { sourcePath, skillId, sessionId, preview: false })
+      if (!value.ready) throw new Error(value.message || '此技能暂时无法添加到目标对话。')
+      onUseSkill(value)
+      closePackage()
     })
   }
   const savedToManaged = detail?.record?.scope === 'managed' && !detail.native?.effective
@@ -172,6 +216,10 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
         </Select> : <strong>{destination?.name}</strong>}
       </label> : <p role="status">正在读取技能库…</p>}
     <button type="button" className="primary-button" disabled={busy || !destination || !detail.validation.valid} onClick={() => void install()}>确认安装</button>
+  </div> : conversation && detail.installationId ? <div className="dsh-package-install">
+    <p role="status">{detail.record.reused ? '已复用个人技能库中的同源技能。' : '已安装到个人技能库。'}</p>
+    <p>添加技能后会打开对话草稿。检查内容后发送，即可继续任务。</p>
+    <button type="button" className="primary-button" disabled={busy} onClick={() => void addToConversation()}>添加到对话草稿</button>
   </div> : !savedToManaged && <p>{native(detail.native)}</p>)
   return <main className="dsh-page dsh-discover-page"><h1>发现下一项能力</h1>
     <form className="dsh-search" onSubmit={e => { e.preventDefault(); void search() }}><input aria-label="搜索技能" placeholder="搜索技能或描述任务" required value={query} onChange={e => setQuery(e.target.value)} /><button className="primary-button" disabled={busy}>搜索</button>{busy && searchController.current && <button type="button" onClick={() => searchController.current?.abort()}>取消检索</button>}
@@ -196,27 +244,43 @@ export function Catalog({ preview, target, clearPreview }: { preview: any, targe
       <div className="dsh-catalog">{result.skills.map((skill: any) => {
         const repository = repositoryUrl(skill.skill_url)
         const source = <><FolderGit2 size={15} aria-hidden="true" /><span>{skill.repo_name || '来源仓库'}</span></>
+        const copies = installationsFrom(inventory?.records || [], skill.skill_url)
         return <article className="dsh-card" key={skill.skill_url}>
         <header className="dsh-catalog-card-heading"><h2>{skill.skill_name}</h2></header>
         <p className="dsh-catalog-description">{skill.skill_description}</p>
         <div className="dsh-catalog-meta">{repository ? <a className="dsh-catalog-repository" href={repository} target="_blank" rel="noreferrer" title={skill.repo_name}>{source}</a> : <span className="dsh-catalog-repository" title={skill.repo_name}>{source}</span>}<span className="dsh-catalog-stars" title="来源仓库星标"><Star size={15} fill="currentColor" strokeWidth={1.6} aria-hidden="true" />{skill.stars}</span></div>
+        {copies.length > 0 && <div className="dsh-evaluation"><span>已安装于</span>
+          {copies.map(record => <span key={record.id} title={record.path}>{installationLocation(record, inventory?.libraries || [])}</span>)}
+        </div>}
         <footer className="dsh-catalog-footer">
           {Object.keys(skill.evaluation || {}).some(key => evaluationNames[key]) && <details className="dsh-catalog-assessment">
             <summary><ListChecks size={14} aria-hidden="true" /><span>目录已有评估</span><ChevronDown size={14} aria-hidden="true" /></summary>
             <p className="dsh-catalog-assessment-source">来自 SkillNet 目录</p>
             <div className="dsh-evaluation">{Object.entries(skill.evaluation).filter(([key]) => evaluationNames[key]).map(([key, value]) => <span key={key}>{evaluationNames[key]} {evaluationText(value)}</span>)}</div>
           </details>}
-          <div className="dsh-catalog-actions"><button type="button" disabled={busy} onClick={() => void inspect(skill)}>查看</button><button type="button" className="dsh-catalog-download" disabled={busy} onClick={() => void inspect(skill, 'download')}>下载</button></div>
+          <div className="dsh-catalog-actions"><button type="button" disabled={busy} onClick={() => void inspect(skill, copies)}>{copies.length ? '查看已安装' : '查看'}</button><button type="button" className="dsh-catalog-download" disabled={busy} onClick={() => void inspect(skill, copies, 'download')}>{copies.length ? '安装' : '下载'}</button></div>
         </footer>
       </article>})}</div>
     </>}
-    {!packageOpen && <>{busy && <p role="status">正在处理…</p>}{error && <p className="error-banner" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}</>}{library?.warnings?.map((warning: string) => <p key={warning} role="status">{warning}</p>)}
+    {!packageOpen && <>{busy && <p role="status">正在处理…</p>}{error && <p className="error-banner" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}</>}
+    {inventoryError && <p className="error-banner" role="alert">读取安装记录失败。{inventoryError}</p>}
+    {inventory?.warnings.map(warning => <p key={warning} role="status">{warning}</p>)}
     {packageOpen && <PackageDialog name={detail?.name || packageName} pending={busy && !packageLoading} onClose={closePackage}>
       {packageLoading && <p role="status">正在读取技能包…</p>}
       {packageError && <p className="error-banner" role="alert">{packageError}</p>}
       {busy && !packageLoading && <p role="status">正在处理…</p>}{error && <p className="error-banner" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+      {packageCopies.length > 0 && <section aria-label="选择安装位置">
+        {packageCopies.map(record => <div className="dsh-row" key={record.id}>
+          <button type="button" disabled={busy} onClick={() => void viewInstalled(record)}>{installationLocation(record, inventory?.libraries || [])}</button>
+          <span className="dsh-path">{record.path}</span>
+        </div>)}
+      </section>}
     {detail && <section className="dsh-package" aria-label="技能包内容">{detail.url && <a href={detail.url} target="_blank" rel="noreferrer">原仓库 ↗</a>}
+      {conversation && <p>来源技能库「{conversation.libraryName}」 · 目标对话「{conversation.sessionTitle}」</p>}
       {packageAction === 'download' && installation}
+      {detail.graphUpdate && <GraphUpdateLink {...detail.graphUpdate} onOpen={closePackage} />}
+      {detail.record?.url && <InstalledSkillUpdate key={detail.record.id} record={detail.record} libraries={inventory?.libraries || []}
+        onUpdated={async record => { setDetail(await api('installed', { id: record.id })); setFile(null) }} />}
       {[...detail.validation.errors, ...detail.validation.warnings].map((message: string, i: number) => <p role="status" key={i}>{message}</p>)}
       <pre>{detail.source}</pre><details><summary>技能包文件</summary>{detail.files.map((name: string) => <button key={name} disabled={busy} onClick={() => void act(async () => { setFile(await api('file', { previewId: detail.previewId, id: detail.installationId, file: name })) })}>{name}</button>)}{file && <><h3>{file.file}</h3><pre>{file.binary ? '二进制文件' : file.text}</pre>{file.truncated && <p>仅显示前 256 KiB。</p>}</>}</details>
       {detail.catalog?.evaluation && <details><summary>目录已有评估</summary>{Object.entries(detail.catalog.evaluation).filter(([key]) => evaluationNames[key]).map(([key, value]: [string, any]) => <section key={key}><h3>{evaluationNames[key]} {evaluationText(value)}</h3><p>{value.reason}</p></section>)}</details>}

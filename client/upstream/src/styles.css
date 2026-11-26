@@ -1419,6 +1419,18 @@ main {
   border-radius: 10px;
   box-shadow: 0 12px 30px rgba(16, 48, 69, 0.14);
 }
+.library-menu-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.library-menu-panel button.library-menu-close {
+  justify-content: center;
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+}
 .library-menu-location {
   padding: 8px 10px;
   border-radius: 7px;

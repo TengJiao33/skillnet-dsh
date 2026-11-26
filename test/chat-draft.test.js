@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 const result = await build({ entryPoints: [fileURLToPath(new URL('../client/chatDraft.ts', import.meta.url))], bundle: true, write: false, format: 'esm', platform: 'node' });
-const { openSkillDraft, openAnalysisDraft } = await import('data:text/javascript;base64,' + Buffer.from(result.outputFiles[0].text).toString('base64'));
+const { openSkillDraft, openAnalysisDraft, openRouteDraft } = await import('data:text/javascript;base64,' + Buffer.from(result.outputFiles[0].text).toString('base64'));
 const selection = { sessionId: 'chosen-conversation', reference: '/principles ', skill: { name: 'principles', path: 'C:/skills/principles/SKILL.md' } };
 
 test('using a skill appends through the native draft API before navigation, without replacing or sending', () => {
@@ -40,4 +40,22 @@ test('analysis opens a native editable draft without followup or model execution
     uiWorkspace: { openSession: id => calls.push(id) },
   }, { sessionId: 'new-graph-session', prompt: '请分步建图' });
   assert.deepEqual(calls, ['draft', 'new-graph-session', 'release']);
+});
+
+test('matching adds the prepared task to the chosen editable draft without sending', () => {
+  const calls = [];
+  const route = { sessionId: 'chosen-conversation', prompt: '按推荐技能检查表格' };
+  openRouteDraft({
+    sessions: { retain(id, options) {
+      assert.deepEqual([id, options.source], [route.sessionId, 'skillnet-route-draft']);
+      return { binding: { id }, release: () => calls.push('release') };
+    } },
+    conversation: { input: { requestDraftInitialization(binding, options) {
+      assert.equal(binding.id, route.sessionId);
+      assert.deepEqual(options, { prompt: route.prompt, whenDraftExists: 'append' });
+      calls.push('draft'); return 'applied';
+    } } },
+    uiWorkspace: { openSession: id => calls.push(id) },
+  }, route);
+  assert.deepEqual(calls, ['draft', route.sessionId, 'release']);
 });
