@@ -1,29 +1,75 @@
 import { mkdir, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { createTaskStore } from './task-store.js';
 import { createAnalysisConversation } from './analysis-conversation.js';
 import { createAnalysisPacer } from './analysis-pacing.js';
 import { managedLibraryInfo } from './library.js';
+import { exploreLibraries } from './federated-route.js';
 
 const secrets = ['api_key', 'embedding_api_key', 'explorer_api_key', 'github_token'];
 const fields = ['base_url', 'model', 'embedding_base_url', 'embedding_model', 'explorer_base_url', 'explorer_model', 'json_mode', 'skillnet_api_url', 'github_mirror'];
 const settingNames = { api_key: '分析模型 API 密钥', embedding_api_key: '向量模型 API 密钥', embedding_base_url: '向量模型地址', embedding_model: '向量模型名称', explorer_api_key: 'DSH 探索器 API 密钥', explorer_base_url: 'DeepSeek Messages 地址', explorer_model: '探索器模型名称' };
-const actionNames = { analyze: '建图', route: '任务路由', create: '创建技能', evaluate: '评估技能' };
+const actionNames = { analyze: '建图', route: '任务路由', create: '创建技能', evaluate: '评估技能', 'evaluate-batch': '批量评估' };
 const personalLibraryName = 'DSH 个人技能库';
 export const reviewSampleFile = new URL('../.local/relation-review-sample.json', import.meta.url);
 const credential = key => `DSH_SKILLNET_${key.toUpperCase()}`;
 const same = (a, b) => Boolean(a && b) && (process.platform === 'win32' ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b));
+const libraryNameKey = name => name.trim().normalize('NFC').toLowerCase();
+const librarySummary = ({ id, name }) => ({ id, name });
+const vectorRouteIssue = data => {
+  if (!data?.graph || data.analysisError) return '请先启用向量检索并成功建图，再运行向量路由。';
+  if (data.graph.embedding_model === '') return '当前图谱不含向量索引，请启用向量检索后重新建图。';
+  if (data.pendingProfiles?.length) return '向量索引缺少部分技能画像，请在面板更新图谱后重新路由。';
+  if (data.changedSkills || data.addedSkills || data.removedSkills) return '技能文件有变化，请先重新建图。';
+  return null;
+};
+const loadingMessages = {
+  scope_unavailable: '无法核验当前对话的技能作用域。',
+  native_missing: '当前对话中找不到此技能的原生定义。',
+  native_not_invocable: '当前对话的原生定义不允许这种调用。',
+  native_path_mismatch: '当前对话命中的原生定义指向其他路径。',
+  installed_copy_unverified: '个人库同名技能未绑定到此次所选的来源。',
+  installed_copy_stale: '已安装副本与所选来源包版本不一致。',
+  native_check_failed: '未能核验当前对话的原生定义。',
+  native_load_failed: '原生技能工具未成功返回完整指令。',
+  native_loaded_path_mismatch: '原生工具返回的资源目录与核验通过的包不一致。',
+};
 const text = (value, name, limit = 100_000) => {
   if (typeof value !== 'string' || !value.trim() || value.length > limit) throw new Error(`${name}不能为空或超过长度限制。`);
   return value.trim();
 };
+
+const requestedRouteCap = [
+  /(?:最多|至多|不超过)\s*(\d+|[一二两三四五六七八九十]{1,3})\s*(?:个|项|条)?\s*技能/giu,
+  /(?:(?:最多|至多|不超过)\s*(?:推荐|返回|选出?|列出)|(?:推荐|返回|选出?|列出)\s*(?:最多|至多|不超过))\s*(\d+|[一二两三四五六七八九十]{1,3})\s*(?:个|项|条)(?=\s*(?:技能|[，。；、,.!?！？;]|$))/giu,
+  /\b(?:at most|up to|no more than)\s+(\d+)\s+skills?\b/giu,
+];
+function routeLimit(k, message) {
+  const userText = (message?.content || []).filter(block => block.type === 'text').map(block => block.text).join('\n').normalize('NFKC');
+  let limit = Math.max(1, Math.min(20, Math.trunc(Number(k)) || 5));
+  for (const pattern of requestedRouteCap) {
+    for (const [, raw] of userText.matchAll(pattern)) {
+      const digits = '零一二三四五六七八九';
+      const chinese = raw.replaceAll('两', '二');
+      const [tens, ones] = chinese.split('十');
+      const cap = /^\d+$/.test(raw) ? Number(raw) : ones === undefined ? digits.indexOf(tens)
+        : (tens ? digits.indexOf(tens) : 1) * 10 + (ones ? digits.indexOf(ones) : 0);
+      if (cap >= 1) limit = Math.min(limit, cap);
+    }
+  }
+  return limit;
+}
 
 export function createWorkspace(ctx, run, library, hostModel) {
   const root = join(library.home, 'skillnet');
   const taskStore = createTaskStore(root);
   let mutation = Promise.resolve();
   const locks = new Set();
+  const evaluationBatches = new Set();
+  const recentRoutes = new WeakMap();
+  const turnRoutes = new WeakMap();
+  const activeRoutes = new WeakSet();
   const serial = fn => { const next = mutation.then(fn); mutation = next.catch(() => {}); return next; };
   const read = async (name, fallback) => {
     try { return JSON.parse(await readFile(join(root, name), 'utf8')); }
@@ -52,12 +98,23 @@ export function createWorkspace(ctx, run, library, hostModel) {
       if (found) settings[key] = found.value;
     }
     if (request._host_model || request.action === 'analysis-step' || (request.action === 'analysis-plan' && request.modelSelection)) { delete settings.api_key; delete settings.explorer_api_key; }
-    return run({ ...request, _settings: settings }, signal, invokeHost, onProgress);
+    const { evaluationSdkModel, ...payload } = request;
+    if (evaluationSdkModel) {
+      const expected = evaluationSdkModel;
+      if (settings.model !== expected.model || settings.base_url !== expected.baseUrl) {
+        const { fields } = await run({ action: 'settings', _settings: settings }, signal);
+        if (fields.model?.value !== expected.model || fields.base_url?.value !== expected.baseUrl) {
+          throw new Error('独立评估模型配置已改变，请恢复本批次所用的模型配置后再继续。');
+        }
+      }
+    }
+    return run({ ...payload, _settings: settings }, signal, invokeHost, onProgress);
   }
   async function settings(args = {}, signal) {
-    if (args.values) await serial(async () => {
+    const changes = args.values ?? {};
+    if (args.values || args.clearSecrets?.length) await serial(async () => {
       const values = await read('settings.json', {});
-      for (const [key, value] of Object.entries(args.values)) {
+      for (const [key, value] of Object.entries(changes)) {
         if (![...fields, ...secrets].includes(key) || typeof value !== 'string') throw new Error('未知的配置字段。');
         if (value.length > 4096) throw new Error('配置值过长。');
         if (fields.includes(key)) {
@@ -70,7 +127,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
         }
       }
       // Validate the complete non-secret settings before committing credentials.
-      for (const key of secrets) if (args.values[key]?.trim()) await ctx.credentials.set(credential(key), args.values[key].trim());
+      for (const key of secrets) if (changes[key]?.trim()) await ctx.credentials.set(credential(key), changes[key].trim());
       for (const key of args.clearSecrets || []) if (secrets.includes(key)) await ctx.credentials.unset(credential(key));
       await save('settings.json', values);
     });
@@ -170,6 +227,28 @@ export function createWorkspace(ctx, run, library, hostModel) {
     if (!same(await realpath(item.sourcePath), item.sourcePath)) throw new Error('技能库路径已改变，请重新连接。');
     return item;
   }
+  async function conversationLibrary(args, signal) {
+    const id = args.libraryId === undefined ? undefined : text(args.libraryId, '技能库 ID');
+    const name = args.libraryName === undefined ? undefined : libraryNameKey(text(args.libraryName, '技能库名称'));
+    if (!id && !name) {
+      return serial(async () => {
+        const state = await workspaceState();
+        if (state.libraries.length === 1) return { item: state.libraries[0] };
+        if (state.libraries.length) return { libraries: state.libraries, reason: 'library_required' };
+        return { item: (await connectPath(state, await createDefault(), signal, false)).connection };
+      });
+    }
+    const libraries = await listLibraries();
+    if (id) {
+      const item = libraries.find(value => value.id === id);
+      if (!item) return { libraries, reason: 'unknown_library_id' };
+      if (name && libraryNameKey(item.name) !== name) return { libraries, reason: 'library_conflict' };
+      return { item };
+    }
+    const matches = libraries.filter(item => libraryNameKey(item.name) === name);
+    if (matches.length === 1) return { item: matches[0] };
+    return matches.length ? { libraries: matches, reason: 'ambiguous_library' } : { libraries, reason: 'unknown_library_name' };
+  }
   async function taskStatus(task) {
     // Finished records outlive DSH's in-memory registry. Reading their saved
     // results must not depend on a job still being retained by the host.
@@ -189,12 +268,26 @@ export function createWorkspace(ctx, run, library, hostModel) {
     for (let index = 0; index < page.items.length; index++) page.items[index] = await taskStatus(page.items[index]);
     return page;
   }
-  async function latestEvaluation(args) {
+  async function latestEvaluation(args, signal) {
     const item = await selected(args);
-    const page = await taskStore.list({ sourcePath: item.sourcePath, skillId: text(args.skillId, '技能标识'), action: 'evaluate', status: 'completed', limit: 1 });
-    return page.items.length ? getTask(page.items[0].id) : null;
+    const skillId = text(args.skillId, '技能标识');
+    const history = (await taskStore.evaluationsBySkill(item.sourcePath)).get(skillId);
+    if (!history?.length) return null;
+    let currentVersion;
+    if (history.some(task => task.sourceVersion)) {
+      const data = await configured({ action: 'local-library', sourcePath: item.sourcePath, indexPath: item.indexPath }, signal);
+      const skill = data.source.skills.find(value => value.id === skillId);
+      if (skill) currentVersion = await library.sourcePackageVersion(await skillSourcePath(item, skill), signal);
+    }
+    const current = currentVersion && history.find(task => task.sourceVersion === currentVersion);
+    const task = current || history[0];
+    return { ...await getTask(task.id), versionStatus: current ? 'current' : task.sourceVersion ? 'historical' : 'unversioned' };
   }
-  async function prepare(args, execution) {
+  async function captureRouteModel(execution, sessionId) {
+    const host = await hostModel.capture(execution, sessionId);
+    return (await hostModel.forRoute?.(host, execution.signal)) ?? host;
+  }
+  async function prepare(args, execution, capturedHost) {
     const action = args.action;
     if (!['analyze', 'route', 'create', 'evaluate'].includes(action)) throw new Error('未知的作业类型。');
     const item = action === 'create' ? null : await selected(args);
@@ -217,7 +310,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
       request.retrievalMode = prior?.retrievalMode ?? args.retrievalMode ?? 'model';
       if (!['auto', 'model', 'vector'].includes(request.retrievalMode)) throw new Error('请选择自动、仅使用模型或向量检索模式。');
     }
-    let host;
+    let host = capturedHost;
     if (prior) {
       if (prior.model) {
         const selection = { ...prior.model };
@@ -225,22 +318,24 @@ export function createWorkspace(ctx, run, library, hostModel) {
         else if (prior.relationReasoningEffort) selection.reasoningEffort = prior.relationReasoningEffort;
         host = { selection, sessionId: prior.sessionId };
       }
-    } else if (hostModel && args.modelSource !== 'sdk') {
+    } else if (action !== 'route' && hostModel && args.modelSource !== 'sdk') {
       host = await hostModel.capture(execution, args.sessionId);
     }
-    if (host) request._host_model = host.selection;
     if (item) Object.assign(request, { sourcePath: item.sourcePath, indexPath: item.indexPath });
-    let routeData;
+    let routeData, preflight;
     if (action === 'route') {
       request.query = text(args.query, '任务');
-      request.k = Math.max(1, Math.min(20, Number(args.k) || 5));
-      const data = await configured({ action: 'local-library', sourcePath: item.sourcePath, indexPath: item.indexPath }, execution.signal);
-      routeData = data;
-      if (!data.source.skills.length) throw new Error('技能库中还没有可用技能。');
+      request.k = routeLimit(args.k);
+      const routeHost = host ?? (hostModel && args.modelSource !== 'sdk' ? captureRouteModel(execution, args.sessionId) : undefined);
+      [routeData, preflight, host] = await Promise.all([
+        configured({ action: 'local-library', sourcePath: item.sourcePath, indexPath: item.indexPath }, execution.signal),
+        settings({}, execution.signal),
+        routeHost,
+      ]);
+      if (!routeData.source.skills.length) throw new Error('技能库中还没有可用技能。');
       if (request.retrievalMode === 'vector') {
-        if (!data.graph || data.analysisError) throw new Error('请先启用向量检索并成功建图，再运行向量路由。');
-        if (data.graph.embedding_model === '') throw new Error('当前图谱不含向量索引，请启用向量检索后重新建图。');
-        if (data.changedSkills || data.addedSkills || data.removedSkills) throw new Error('技能文件有变化，请先重新建图。');
+        const issue = vectorRouteIssue(routeData);
+        if (issue) throw new Error(issue);
       }
       request.backend = 'dsh';
     }
@@ -256,13 +351,11 @@ export function createWorkspace(ctx, run, library, hostModel) {
       const data = await configured({ action: 'local-library', sourcePath: item.sourcePath, indexPath: item.indexPath }, execution.signal);
       const skill = data.source.skills.find(s => s.id === args.skillId);
       if (!skill) throw new Error('这个技能不在当前库中。');
-      const candidate = await realpath(skill.path || join(item.sourcePath, skill.id));
-      const rel = relative(item.sourcePath, candidate);
-      if (!rel || rel.startsWith('..') || isAbsolute(rel)) throw new Error('技能路径不在当前库中。');
-      request.path = candidate.endsWith('SKILL.md') ? resolve(candidate, '..') : candidate;
+      request.path = dirname(await skillSourcePath(item, skill));
     }
     // Preflight endpoints before allocating a job. SDK validates each endpoint independently.
-    const current = await settings({}, execution.signal);
+    if (host) request._host_model = host.selection;
+    const current = preflight ?? await settings({}, execution.signal);
     const vectors = ['embedding_api_key', 'embedding_base_url', 'embedding_model'];
     if (request.retrievalMode === 'auto') {
       const configuredVectors = vectors.every(key => current.fields[key]?.value);
@@ -270,7 +363,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
       const routeIndex = routeData?.graph?.embedding_model &&
         routeData.graph.embedding_model === current.fields.embedding_model?.value &&
         endpoint(routeData.graph.embedding_base_url) === endpoint(current.fields.embedding_base_url?.value) &&
-        !routeData.analysisError && !routeData.changedSkills && !routeData.addedSkills && !routeData.removedSkills;
+        !vectorRouteIssue(routeData);
       request.retrievalMode = configuredVectors && (action === 'analyze' || routeIndex) ? 'vector' : 'model';
     }
     const required = [
@@ -281,7 +374,138 @@ export function createWorkspace(ctx, run, library, hostModel) {
     if (missing.length) throw new Error(`请先在设置中配置：${missing.map(key => settingNames[key] || key).join('、')}`);
     return { action, item, request, host };
   }
+  async function evaluatePackage(request, record, signal, invoke, sourceVersion) {
+    const expected = join(request.path, 'SKILL.md');
+    record.sourceVersion = sourceVersion ?? await library.sourcePackageVersion(expected, signal);
+    const result = await configured(request, signal, invoke);
+    signal.throwIfAborted();
+    if (await library.sourcePackageVersion(expected, signal) !== record.sourceVersion) {
+      throw new Error('评估期间技能包已改变，请重新评估。');
+    }
+    return result;
+  }
+  async function startEvaluationBatch(args, execution) {
+    const { signal, agent } = execution;
+    const item = await selected({ libraryId: text(args.libraryId, '技能库 ID') });
+    const mode = args.batchMode ?? 'missing';
+    if (!['missing', 'all'].includes(mode)) throw new Error('请选择未评估的技能或全部技能。');
+    const prior = args.retryTaskId ? await taskStore.get(args.retryTaskId, agent?.id) : null;
+    if (prior && (prior.action !== 'evaluate-batch' || prior.libraryId !== item.id || !same(prior.sourcePath, item.sourcePath) || ['running', 'stopping'].includes(prior.status))) {
+      throw new Error('请选择本库已结束的批量评估作业。');
+    }
+    const previousFailures = prior?.result?.items?.filter(value => value.status === 'failed').map(value => value.skillId);
+    if (prior && !previousFailures?.length) throw new Error('这批评估没有可重试的失败项。');
+
+    const sessionId = args.sessionId === undefined ? undefined : text(args.sessionId, 'DSH 对话');
+    const modelSource = prior?.modelSource ?? args.modelSource ?? (sessionId ? 'host' : null);
+    if (!['host', 'sdk'].includes(modelSource) || !prior && modelSource === 'sdk' && sessionId) {
+      throw new Error('请明确选择用于批量评估的 DSH 对话、默认 DSH 模型或独立模型。');
+    }
+    let host, model;
+    if (modelSource === 'host') {
+      host = prior ? { selection: prior.model, sessionId: prior.sessionId } : await hostModel.capture(execution, sessionId);
+      model = host.selection;
+      if (!model?.provider || !model.model) throw new Error('无法确认该批次使用的 DSH 模型。');
+    } else {
+      const { fields } = await settings({}, signal);
+      if (!fields.api_key?.value || !fields.base_url?.value || !fields.model?.value) throw new Error('请先在设置中配置独立评估模型。');
+      model = { provider: 'sdk', baseUrl: fields.base_url.value, model: fields.model.value };
+      if (prior && (prior.model?.model !== model.model || prior.model?.baseUrl !== model.baseUrl)) {
+        throw new Error('独立评估模型配置已改变，请恢复本批次所用的模型配置后再继续。');
+      }
+    }
+    const data = await configured({ action: 'local-library', sourcePath: item.sourcePath, indexPath: item.indexPath }, signal);
+    const source = new Map(data.source.skills.map(skill => [skill.id, skill]));
+    const queue = previousFailures ?? [...source.keys()];
+    if (!queue.length) throw new Error('这个技能库还没有可评估的技能。');
+    const lock = process.platform === 'win32' ? item.sourcePath.toLowerCase() : item.sourcePath;
+    signal?.throwIfAborted();
+    if (evaluationBatches.has(lock)) throw new Error('这个技能库已有批量评估作业在运行。');
+    evaluationBatches.add(lock);
+    const initialized = Promise.withResolvers();
+    let id;
+    try {
+      id = ctx.jobs.start({ kind: 'skillnet-evaluate-batch', label: `SkillNet ${actionNames['evaluate-batch']} / ${item.name}`, owner: agent?.id, outputLimitBytes: 24 * 1024,
+        run(job) {
+          const controller = new AbortController();
+          const items = queue.map(skillId => ({ skillId, status: 'unattempted' }));
+          const result = { total: items.length, completed: 0, failed: 0, skipped: 0, unattempted: items.length, items };
+          const context = { owner: agent?.id, libraryId: item.id, sourcePath: item.sourcePath, modelSource, model, sessionId: host?.sessionId };
+          const record = { ...context, id: job.id, action: 'evaluate-batch', retryTaskId: prior?.id,
+            status: 'running', startedAt: new Date().toISOString(), result };
+          job.updateProgress(`已处理 0 / ${result.total}`);
+          const done = (async () => {
+            let jobError;
+            try {
+              await taskStore.write(record);
+              initialized.resolve();
+              const history = (prior || mode === 'missing') ? await taskStore.evaluationsBySkill(item.sourcePath) : null;
+              for (const row of items) {
+                controller.signal.throwIfAborted();
+                job.updateProgress(`已处理 ${result.total - result.unattempted} / ${result.total} · 正在评估 ${row.skillId}`);
+                const child = { ...context, id: `skillnet-evaluate-${randomUUID().replaceAll('-', '')}`,
+                  action: 'evaluate', skillId: row.skillId, batchId: record.id, startedAt: new Date().toISOString(), modelSessions: [] };
+                let outcome;
+                try {
+                  const skill = source.get(row.skillId);
+                  if (!skill) throw new Error('这个技能已不在当前库中。');
+                  const expected = await skillSourcePath(item, skill);
+                  const sourceVersion = await library.sourcePackageVersion(expected, controller.signal);
+                  const alreadyEvaluated = history?.get(row.skillId)?.some(task => task.sourceVersion === sourceVersion &&
+                    (!prior || task.finishedAt > prior.finishedAt));
+                  if (alreadyEvaluated) outcome = 'skipped';
+                  else {
+                    const cacheDir = join(root, 'artifacts', child.id, 'evaluation');
+                    await mkdir(dirname(cacheDir), { recursive: true });
+                    const request = { action: 'evaluate', path: dirname(expected), sourcePath: item.sourcePath, indexPath: item.indexPath,
+                      cache_dir: cacheDir, ...(host ? { _host_model: host.selection } : { evaluationSdkModel: model }) };
+                    const invoke = host ? (payload, modelSignal) => hostModel.invoke(host, payload, modelSignal, async id => { child.modelSessions.push(id); }) : undefined;
+                    child.result = await evaluatePackage(request, child, controller.signal, invoke, sourceVersion);
+                    outcome = 'completed';
+                  }
+                } catch (error) {
+                  controller.signal.throwIfAborted();
+                  outcome = 'failed';
+                  child.error = error.message;
+                }
+                if (outcome !== 'skipped') {
+                  child.status = outcome;
+                  child.finishedAt = new Date().toISOString();
+                  await taskStore.write(child);
+                  row.taskId = child.id;
+                }
+                row.status = outcome;
+                if (child.error) row.error = child.error;
+                result[outcome]++;
+                result.unattempted--;
+                await taskStore.write(record);
+                job.updateProgress(`已处理 ${result.total - result.unattempted} / ${result.total}`);
+              }
+              record.status = 'completed';
+            } catch (error) {
+              jobError = error;
+              record.status = controller.signal.aborted ? 'killed' : 'failed';
+              record.error = controller.signal.aborted ? '作业已取消。' : error.message;
+            } finally {
+              record.finishedAt = new Date().toISOString();
+              try { await taskStore.write(record); }
+              finally {
+                evaluationBatches.delete(lock);
+                if (jobError) initialized.reject(jobError);
+              }
+            }
+            const { items: _details, ...summary } = result;
+            return { status: record.status, detail: record.error, result: JSON.stringify({ ...record, result: summary }) };
+          })();
+          return { done, cancel: () => controller.abort() };
+        },
+      });
+    } catch (error) { evaluationBatches.delete(lock); throw error; }
+    await initialized.promise;
+    return { id, action: 'evaluate-batch', status: 'running' };
+  }
   async function start(args, execution = {}) {
+    if (args.action === 'evaluate-batch') return startEvaluationBatch(args, execution);
     const { action, item, request, host } = await prepare(args, execution);
     const lock = action === 'analyze' ? (process.platform === 'win32' ? item.indexPath.toLowerCase() : item.indexPath) : null;
     if (lock && locks.has(lock)) throw new Error('这个技能库正在建图。');
@@ -331,7 +555,9 @@ export function createWorkspace(ctx, run, library, hostModel) {
                 if (action !== 'analyze') await taskStore.write(record);
               }) : undefined;
               const runModel = invoke && action === 'analyze' ? createAnalysisPacer(invoke, message => job.updateProgress(message)) : invoke;
-              record.result = await configured(request, controller.signal, runModel, action === 'analyze' ? message => job.updateProgress(message) : undefined);
+              record.result = action === 'evaluate'
+                ? await evaluatePackage(request, record, controller.signal, runModel)
+                : await configured(request, controller.signal, runModel, action === 'analyze' ? message => job.updateProgress(message) : undefined);
               record.status = 'completed';
             } catch (error) {
               record.status = controller.signal.aborted ? 'killed' : 'failed';
@@ -444,91 +670,382 @@ export function createWorkspace(ctx, run, library, hostModel) {
         typeof skill.source !== 'string' || versions[skill.id] !== createHash('sha256').update(skill.source).digest('hex'))) {
         throw new Error('技能库已改变，请重新运行路由。');
       }
-    } else if (!current.graph || current.analysisError || current.changedSkills || current.addedSkills || current.removedSkills) {
-      throw new Error('技能库或索引已改变，请重新建图和路由。');
+    } else {
+      const issue = vectorRouteIssue(current);
+      if (issue) throw new Error(issue);
     }
     return { item, current };
   }
-  async function routeConversation(args, execution, native) {
-    if (!execution.agent) throw new Error('请在当前 DSH 对话中调用技能路由。');
-    execution.signal.throwIfAborted();
-    // An ordinary conversation does not need to open the panel to connect the
-    // default library. An explicitly selected library still takes precedence.
-    const libraryId = args.libraryId || (await connect(await config(), execution.signal)).connection.id;
-    const { item, request, host } = await prepare({ ...args, action: 'route', libraryId, retrievalMode: args.retrievalMode ?? 'auto' }, execution);
-    const result = await configured(request, execution.signal, (payload, signal) => hostModel.invoke(host, payload, signal));
-    const { current } = await routeContext({ libraryId: item.id, retrievalMode: request.retrievalMode, result }, execution.signal);
-    execution.signal.throwIfAborted();
-    const selected = [];
-    for (const skill of result.skills) {
+  async function skillSourcePath(item, skill) {
+    const source = skill.path || join(item.sourcePath, skill.id);
+    const expected = await realpath(basename(source) === 'SKILL.md' ? source : join(source, 'SKILL.md'));
+    const rel = relative(item.sourcePath, expected);
+    if (!rel || rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
+      throw new Error('技能路径不在当前库中。');
+    }
+    return expected;
+  }
+  async function routePicks(item, current, picks) {
+    return Promise.all(picks.map(async skill => {
       const local = current.source.skills.find(value => value.id === skill.skill_id);
       if (!local) throw new Error('路由结果已过期，请重新运行。');
-      const path = await realpath(local.path || join(item.sourcePath, local.id));
-      selected.push({ ...skill, name: local.name, path: path.endsWith('SKILL.md') ? dirname(path) : path });
+      return { ...skill, name: local.name, path: dirname(await skillSourcePath(item, local)) };
+    }));
+  }
+  function currentUserMessage(agent) {
+    return ctx.sessions?.get(agent.id)?.deriveMessages().findLast(message =>
+      message.role === 'user' && message.source?.kind === 'user');
+  }
+  function routeCache(agent, messageId) {
+    if (!messageId) return new Map();
+    if (turnRoutes.get(agent)?.messageId !== messageId) turnRoutes.set(agent, { messageId, entries: new Map() });
+    return turnRoutes.get(agent).entries;
+  }
+  function reuseRoute(agent, entry) {
+    if (entry.pending) recentRoutes.set(agent, entry.pending);
+    else recentRoutes.delete(agent);
+    return { ...entry.response, reused: true };
+  }
+  async function finishRoute(agent, signal, messageId, items, response, cache, keys) {
+    const result = await rememberRoute(agent, signal, messageId, items, response);
+    if (result.skills.length) {
+      const entry = { response: result, pending: recentRoutes.get(agent) };
+      for (const key of keys) cache.set(key, entry);
     }
-    const library = { id: item.id, name: item.name };
-    if (args.loadSkills === false) {
-      return { library, query: request.query, skills: selected, loaded: [], usage: result.usage,
-        next: selected.length ? '按用户要求报告本次推荐结果。' : '未找到适合的技能。' };
+    return result;
+  }
+  async function inConversation(execution, operation) {
+    const { agent, signal } = execution;
+    if (!agent) throw new Error('请在当前 DSH 对话中调用技能路由。');
+    signal.throwIfAborted();
+    if (activeRoutes.has(agent)) throw new Error('当前对话已有技能路由正在处理，请等它结束。');
+    activeRoutes.add(agent);
+    try { return await operation(agent, signal); }
+    finally { activeRoutes.delete(agent); }
+  }
+  function routeLoadIssue(skill, code, actualPath) {
+    return { skillId: skill.skill_id, name: skill.name, code, message: loadingMessages[code] || loadingMessages.native_check_failed,
+      expectedPath: join(skill.path, 'SKILL.md'), ...(skill.library && { library: skill.library }),
+      ...(actualPath ? { actualPath } : {}) };
+  }
+  function loadResult(status, loadStage, loaded = [], blocked = [], unattemptedSkillIds = []) {
+    return { status, loadStage, loaded, loadedSkillIds: loaded.map(skill => skill.skillId), blocked, unattemptedSkillIds };
+  }
+  async function loadRouteSkills(item, picks, agent, signal) {
+    let cwd;
+    try { cwd = await ctx.workingDirectory.ensure(agent, signal); }
+    catch {
+      signal.throwIfAborted();
+      return loadResult('blocked', 'preflight', [], picks.map(skill => routeLoadIssue(skill, 'scope_unavailable')));
     }
-    // Validate every native definition before loading any instructions.
-    const cwd = await ctx.workingDirectory.ensure(execution.agent, execution.signal);
-    for (const skill of selected) {
-      const entry = await native.get(skill.name, { cwd, scope: execution.agent, signal: execution.signal });
-      if (!entry?.invocation?.modelInvocable || !same(entry.path, join(skill.path, 'SKILL.md'))) {
-        throw new Error(`路由已选中 ${selected.map(s => s.skill_id).join('、')}。技能 ${skill.name} 尚未在当前对话生效，或被同名技能覆盖。加载尚未开始，请勿重复路由。`);
+    const verified = [], blocked = [];
+    for (const skill of picks) {
+      signal.throwIfAborted();
+      try {
+        const definition = await library.resolveRouteSkill({ libraryId: skill.library?.id ?? item.id, skillId: skill.skill_id, name: skill.name,
+          expectedPath: join(skill.path, 'SKILL.md'), cwd, scope: agent, signal, invocation: 'modelInvocable' });
+        if (definition.code) blocked.push(routeLoadIssue(skill, definition.code, definition.entry?.path));
+        else verified.push({ skill, effectivePath: definition.effectivePath });
+      } catch {
+        signal.throwIfAborted();
+        blocked.push(routeLoadIssue(skill, 'native_check_failed'));
       }
     }
+    if (blocked.length) return loadResult('blocked', 'preflight', [], blocked, verified.map(({ skill }) => skill.skill_id));
     const loaded = [];
-    for (const skill of selected) {
-      execution.signal.throwIfAborted();
-      const batch = await ctx.tools.execute({ calls: [{ type: 'tool-call', id: randomUUID(), name: 'skill', arguments: JSON.stringify({ name: skill.name }) }], agent: execution.agent, signal: execution.signal });
-      const reply = batch.results[0]?.result;
-      if (!reply || reply.isError || reply.value?.name !== skill.name || !reply.value.content || !reply.content?.length) throw new Error(`未能在当前对话加载技能 ${skill.name}。${reply?.error?.message || ''}`);
-      loaded.push({ name: skill.name, content: reply.content });
+    for (const { skill, effectivePath } of verified) {
+      signal.throwIfAborted();
+      let reply;
+      try {
+        const batch = await ctx.tools.execute({ calls: [{ type: 'tool-call', id: randomUUID(), name: 'skill', arguments: JSON.stringify({ name: skill.name }) }], agent, signal });
+        reply = batch.results[0]?.result;
+      } catch { signal.throwIfAborted(); }
+      signal.throwIfAborted();
+      let code;
+      if (!reply || reply.isError || reply.value?.name !== skill.name || !reply.value.content || !reply.content?.length) code = 'native_load_failed';
+      const base = reply?.value?.resourceBase;
+      const actualPath = base?.kind === 'directory' && typeof base.path === 'string' ? base.path : undefined;
+      if (!code && base?.kind === 'directory' && !same(actualPath, dirname(effectivePath))) code = 'native_loaded_path_mismatch';
+      if (code) {
+        const unattempted = picks.slice(loaded.length + 1).map(value => value.skill_id);
+        return loadResult(loaded.length ? 'partial' : 'blocked', 'invocation', loaded,
+          [routeLoadIssue(skill, code, actualPath ? join(actualPath, 'SKILL.md') : undefined)], unattempted);
+      }
+      loaded.push({ skillId: skill.skill_id, name: skill.name, effectivePath, content: reply.content,
+        ...(skill.library && { library: skill.library }) });
     }
-    return { library, query: request.query, skills: selected, loaded, usage: result.usage,
-      next: selected.length ? '已通过当前对话的原生 skill 工具加载以下完整指令。结合原任务继续执行，遵守用户要求；无需再次选对话、加载或路由。' : '未找到适合的技能。继续处理原任务，不要为了凑数选择技能或自动搜索、安装。' };
+    return loadResult('loaded', 'invocation', loaded);
   }
-  async function useRoute(args, native, signal) {
-    const task = await getTask(args.id);
-    if (task.action !== 'route' || task.status !== 'completed' || !task.result?.skills?.length) throw new Error('请选择已有技能结果的已完成路由。');
-    const { item, current } = await routeContext(task, signal);
-    return handoff(item, current, { query: task.query, skills: task.result.skills }, args.sessionId || task.sessionId, native, signal);
+  function routeResponse(item, request, skills, usage, loading) {
+    const next = {
+      no_match: '未找到适合的技能。继续处理原任务，无需自动安装或重复路由。',
+      recommended: '名单已选定。直接向用户交付名单和理由，本轮不要再调用路由。用户在新消息要求执行时，可继续使用本次选择。',
+      loaded: '技能指令已加载。用这些指令继续执行原任务，本轮不要再为相同范围路由。',
+      blocked: '简要说明选中的技能、哪些未能加载以及原因。若未安装，请用户在工作台安装所缺技能，再在本对话说「继续」。本轮不要再路由。无需展示内部编号或路径。',
+      partial: '简要说明哪些技能已加载、哪些还需要处理，再请用户在本对话说「继续」。本轮不要再路由。无需展示内部编号或路径。',
+    }[loading.status];
+    return { library: item ? librarySummary(item) : null, query: request.query, retrievalMode: request.retrievalMode,
+      ...(request.libraryScope && { libraryScope: request.libraryScope }),
+      ...(request.libraries && { libraries: request.libraries }),
+      ...(request.libraryReason && { libraryReason: request.libraryReason }),
+      skills, ...(usage !== undefined && { usage }), ...loading, next };
   }
-  async function useSkill(args, native, signal) {
+  async function packageVersions(skills, signal) {
+    return Promise.all(skills.map(skill => library.sourcePackageVersion(join(skill.path, 'SKILL.md'), signal)));
+  }
+  async function rememberRoute(agent, signal, messageId, items, response) {
+    recentRoutes.delete(agent);
+    if (!messageId || !['recommended', 'blocked', 'partial'].includes(response.status)) return response;
+    let versions;
+    try { versions = await packageVersions(response.skills, signal); }
+    catch {
+      signal.throwIfAborted();
+      return { ...response, next: response.next + ' 无法保留来源包版本，使用这些技能前需要重新路由。' };
+    }
+    signal.throwIfAborted();
+    const resumeId = randomUUID();
+    const origins = new Map(items.map(item => [item.id, item.sourcePath]));
+    const { library, libraryScope, libraries, libraryReason, query, retrievalMode, skills } = response;
+    recentRoutes.set(agent, { resumeId, messageId, origins, library, libraryScope, libraries, libraryReason,
+      query, retrievalMode, skills, versions });
+    return { ...response, resumeId };
+  }
+  function libraryClarification(agent, query, { libraries, reason, libraryReason }) {
+    recentRoutes.delete(agent);
+    return { ...loadResult('needs_library', null), query, library: null, retrievalMode: null, skills: [], reason,
+      libraries: libraries.map(({ id, name, sourcePath }) => ({ id, name, sourcePath })),
+      ...(libraryReason && { libraryReason }),
+      next: '请用自然语言向用户确认要用的技能库。同名库可按需用路径区分。回复后等用户的新消息，再运行路由。' };
+  }
+  async function routeLibraryGroups(items, signal) {
+    const groups = [];
+    for (const connection of items) {
+      signal.throwIfAborted();
+      const item = await selected({ libraryId: connection.id });
+      const { source } = await configured({ action: 'local-library', sourcePath: item.sourcePath, indexPath: item.indexPath }, signal);
+      groups.push({ item, skills: source.skills });
+    }
+    return groups;
+  }
+  async function getCrossLibraries(args, signal) {
+    const libraries = await listLibraries();
+    if (args.libraryId !== undefined || args.libraryName !== undefined) {
+      return { libraries, reason: 'conflicting_library_scope' };
+    }
+    let selectedLibraries = libraries;
+    if (args.libraryNames !== undefined) {
+      if (!Array.isArray(args.libraryNames) || args.libraryNames.length > libraries.length) {
+        return { libraries, reason: 'cross_library_members_required' };
+      }
+      const items = new Map();
+      for (const libraryName of args.libraryNames) {
+        const resolution = await conversationLibrary({ libraryName }, signal);
+        if (!resolution.item) return resolution;
+        items.set(resolution.item.id, resolution.item);
+      }
+      selectedLibraries = [...items.values()];
+    }
+    return selectedLibraries.length >= 2 ? { items: selectedLibraries } : { libraries, reason: 'cross_library_members_required' };
+  }
+  async function routeCombined(args, query, execution, agent, signal, message, cache) {
+    const resolution = await getCrossLibraries(args, signal);
+    if (!resolution.items) return libraryClarification(agent, query, resolution);
+    if (args.retrievalMode === 'vector') throw new Error('跨库匹配从各库当前源码选择，请使用自动或仅使用模型。');
+    const { items } = resolution;
+    const key = 'combine:' + items.map(item => item.id).sort().join(',');
+    if (cache.has(key)) return reuseRoute(agent, cache.get(key));
+    const host = await captureRouteModel(execution);
+    const groups = await routeLibraryGroups(items, signal);
+    const k = routeLimit(args.k, message);
+    const combined = await exploreLibraries(groups, { query, k, combine: true },
+      (payload, modelSignal) => hostModel.invoke(host, payload, modelSignal), signal);
+    if (combined.narrow) return libraryClarification(agent, query, {
+      libraries: items, reason: 'cross_library_scope_too_large', libraryReason: combined.reason,
+    });
+    const picked = new Map();
+    const picks = [];
+    for (const { item, skill, reason } of combined.picks) {
+      if (!picked.has(item.id)) {
+        const [group] = await routeLibraryGroups([item], signal);
+        if (!same(group.item.sourcePath, item.sourcePath)) throw new Error('技能库路径已改变，请重新路由。');
+        picked.set(item.id, group);
+      }
+      const current = picked.get(item.id).skills.find(value => value.id === skill.id);
+      if (!current || current.source !== skill.source) throw new Error('已选技能源码已改变，请重新路由。');
+      const path = dirname(await skillSourcePath(item, current));
+      picks.push({ skill_id: current.id, name: current.name, path, reason, library: librarySummary(item) });
+    }
+    const request = { query, retrievalMode: 'model', libraryScope: 'combine', libraries: items.map(librarySummary) };
+    signal.throwIfAborted();
+    const loading = !picks.length ? loadResult('no_match', null) : args.loadSkills === false
+      ? loadResult('recommended', null) : await loadRouteSkills(null, picks, agent, signal);
+    return finishRoute(agent, signal, message?.id, items, routeResponse(null, request, picks, undefined, loading), cache, [key]);
+  }
+  async function routeConversation(args, execution) {
+    return inConversation(execution, async (agent, signal) => {
+      const query = text(args.query, '任务');
+      const message = currentUserMessage(agent);
+      const cache = routeCache(agent, message?.id);
+      if (cache.has('clarification')) return reuseRoute(agent, cache.get('clarification'));
+      if (args.libraryScope === 'combine') return routeCombined(args, query, execution, agent, signal, message, cache);
+      if (args.libraryNames !== undefined) throw new Error('指定参与库列表时，请使用跨库匹配。');
+      let resolved = await conversationLibrary(args, signal);
+      let choice, capturedHost;
+      if (resolved.reason === 'library_required') {
+        if (cache.has('auto')) return reuseRoute(agent, cache.get('auto'));
+        capturedHost = await captureRouteModel(execution);
+        const groups = await routeLibraryGroups(resolved.libraries, signal);
+        choice = await exploreLibraries(groups, { query, combine: false },
+          (payload, modelSignal) => hostModel.invoke(capturedHost, payload, modelSignal), signal);
+        if (choice.libraryId) resolved = await conversationLibrary({ libraryId: choice.libraryId }, signal);
+        else resolved = { ...resolved, reason: 'uncertain_library', libraryReason: choice.reason };
+      }
+      signal.throwIfAborted();
+      if (!resolved.item) {
+        const result = libraryClarification(agent, query, resolved);
+        if (resolved.reason === 'uncertain_library') cache.set('clarification', { response: result });
+        return result;
+      }
+      const key = 'library:' + resolved.item.id;
+      if (cache.has(key)) {
+        if (choice) cache.set('auto', cache.get(key));
+        return reuseRoute(agent, cache.get(key));
+      }
+      const k = routeLimit(args.k, message);
+      const { item, request, host } = await prepare({ ...args, action: 'route', query, k, libraryId: resolved.item.id, retrievalMode: args.retrievalMode ?? 'auto' }, execution, capturedHost);
+      const result = await configured(request, signal, (payload, modelSignal) => hostModel.invoke(host, payload, modelSignal));
+      const { current } = await routeContext({ libraryId: item.id, retrievalMode: request.retrievalMode, result }, signal);
+      const picks = await routePicks(item, current, result.skills);
+      signal.throwIfAborted();
+      let loading;
+      if (!picks.length) loading = loadResult('no_match', null);
+      else if (args.loadSkills === false) loading = loadResult('recommended', null);
+      else loading = await loadRouteSkills(item, picks, agent, signal);
+      const context = choice ? { ...request, libraryScope: 'auto', libraryReason: choice.reason } : request;
+      return finishRoute(agent, signal, message?.id, [item], routeResponse(item, context, picks, result.usage, loading), cache, choice ? [key, 'auto'] : [key]);
+    });
+  }
+  async function continueConversationRoute(args, execution) {
+    return inConversation(execution, async (agent, signal) => {
+      const pending = recentRoutes.get(agent);
+      if (!pending || pending.resumeId !== args.resumeId) throw new Error('当前对话没有这份可继续的选择结果，请重新路由。');
+      const messageId = currentUserMessage(agent)?.id;
+      if (!messageId || messageId === pending.messageId) throw new Error('请等用户在本对话明确要求继续，再加载选中的技能。');
+      pending.messageId = messageId;
+      const current = new Map();
+      const picks = [];
+      let versions;
+      try {
+        for (const skill of pending.skills) {
+          const id = skill.library?.id ?? pending.library.id;
+          if (!current.has(id)) {
+            const item = await selected({ libraryId: id });
+            if (!same(item.sourcePath, pending.origins.get(id))) throw new Error('技能库路径已改变。');
+            const data = await configured({ action: 'local-library', sourcePath: item.sourcePath, indexPath: item.indexPath }, signal);
+            current.set(id, { item, data });
+          }
+          const { item, data } = current.get(id);
+          picks.push(...await routePicks(item, data, [skill]));
+        }
+        versions = await packageVersions(picks, signal);
+      } catch (error) {
+        signal.throwIfAborted();
+        recentRoutes.delete(agent);
+        throw new Error('无法确认上次选择的技能来源，请重新路由。', { cause: error });
+      }
+      if (versions.some((version, i) => version !== pending.versions[i] || !same(picks[i].path, pending.skills[i].path))) {
+        recentRoutes.delete(agent);
+        throw new Error('上次选择的技能包已变化，请重新路由。');
+      }
+      const loading = await loadRouteSkills(pending.library, picks, agent, signal);
+      const result = routeResponse(pending.library, pending, picks, undefined, loading);
+      if (loading.status === 'loaded') { recentRoutes.delete(agent); return result; }
+      return { ...result, resumeId: pending.resumeId };
+    });
+  }
+  async function useRoute(args, signal) {
+    const { ready, ...handoff } = await prepareRouteHandoff(args, signal);
+    if (!ready) return { accepted: false, ...handoff };
+    return hostModel.use({ query: handoff.query, skills: handoff.skills }, handoff.sessionId, signal);
+  }
+  async function routeDraft(args, signal) {
+    if (typeof args.sessionId !== 'string' || !args.sessionId.trim()) throw new Error('请先选择要使用的 DSH 对话。');
+    const handoff = await prepareRouteHandoff(args, signal);
+    if (!handoff.ready) return handoff;
+    const references = handoff.skills.map(skill => `- ${skill.name}（生效目录 ${skill.path}）`);
+    const prompt = [
+      `请先加载工作台从「${handoff.libraryName}」为下列任务选出的技能，核对各技能的生效目录，再继续任务。`,
+      ...references,
+      '',
+      handoff.query,
+    ].join('\n');
+    return { ready: true, sessionId: handoff.sessionId, prompt };
+  }
+  async function installPreview(item, local, expected, code, signal) {
+    if (same(item.sourcePath, join(library.home, 'skills')) || !['native_missing', 'native_path_mismatch'].includes(code)) return;
+    return library.prepareLocal(dirname(expected), signal, { libraryId: item.id, skillId: local.id });
+  }
+  async function skillInConversation(args, signal) {
     const item = await selected(args);
     const current = await configured({ action: 'local-library', sourcePath: item.sourcePath, indexPath: item.indexPath }, signal);
     const skill = current.source.skills.find(skill => skill.id === args.skillId);
     if (!skill) throw new Error('这个技能已不在当前库中，请刷新技能库。');
     const agent = await hostModel.agentFor(args.sessionId, signal);
     const cwd = await ctx.workingDirectory.ensure(agent, signal);
-    const path = await realpath(skill.path || join(item.sourcePath, skill.id));
-    const expected = path.endsWith('SKILL.md') ? path : join(path, 'SKILL.md');
-    const entry = await native.get(skill.name, { cwd, scope: agent, signal });
-    if (!entry?.invocation?.userInvocable || !same(entry.path, expected)) {
-      return { ready: false, preview: await library.prepareLocal(dirname(expected), signal), message: '这个技能尚未在目标对话中生效，请先预览并安装，或检查同名覆盖与调用权限。' };
+    const expected = await skillSourcePath(item, skill);
+    return { item, skill, agent, cwd, expected };
+  }
+  async function skillStatus(args, signal) {
+    const { item, skill, agent, cwd, expected } = await skillInConversation(args, signal);
+    const lookup = { libraryId: item.id, skillId: skill.id, name: skill.name, expectedPath: expected, cwd, scope: agent, signal };
+    let definition = await library.resolveRouteSkill({ ...lookup, invocation: 'modelInvocable' });
+    if (definition.code === 'native_not_invocable' && definition.entry?.invocation?.userInvocable) {
+      definition = await library.resolveRouteSkill({ ...lookup, invocation: 'userInvocable' });
+    }
+    const { entry, effectivePath, code } = definition;
+    signal?.throwIfAborted();
+    return { status: code ? 'unavailable' : 'available', sourcePath: item.sourcePath, expectedPath: expected,
+      modelInvocable: !code && entry.invocation?.modelInvocable === true,
+      userInvocable: !code && entry.invocation?.userInvocable === true,
+      ...(entry?.path ? { actualPath: entry.path } : {}), ...(effectivePath ? { effectivePath } : {}),
+      ...(code ? { code, message: loadingMessages[code] || loadingMessages.native_check_failed } : {}) };
+  }
+  async function useSkill(args, signal) {
+    const { item, skill, agent, cwd, expected } = await skillInConversation(args, signal);
+    const { entry, effectivePath, code } = await library.resolveRouteSkill({ libraryId: item.id, skillId: skill.id, name: skill.name,
+      expectedPath: expected, cwd, scope: agent, signal, invocation: 'userInvocable' });
+    if (code) {
+      const preview = args.preview === false ? undefined : await installPreview(item, skill, expected, code, signal);
+      return { ready: false, code, message: loadingMessages[code] || loadingMessages.native_check_failed,
+        ...(entry?.path ? { actualPath: entry.path } : {}), ...(preview ? { preview } : {}) };
     }
     signal?.throwIfAborted();
-    return { ready: true, sessionId: agent.id, reference: `/${entry.name || skill.name} `, skill: { name: skill.name, path: expected } };
+    return { ready: true, sessionId: agent.id, reference: `/${entry.name || skill.name} `,
+      skill: { name: skill.name, path: effectivePath, userInvocable: true, modelInvocable: entry.invocation?.modelInvocable === true } };
   }
-  async function handoff(item, current, selection, sessionId, native, signal) {
-    const agent = await hostModel.agentFor(sessionId, signal);
+  async function prepareRouteHandoff(args, signal) {
+    const task = await getTask(args.id);
+    if (task.action !== 'route' || task.status !== 'completed' || !task.result?.skills?.length) throw new Error('请选择已有技能结果的已完成路由。');
+    const { item, current } = await routeContext(task, signal);
+    const agent = await hostModel.agentFor(args.sessionId || task.sessionId, signal);
     const cwd = await ctx.workingDirectory.ensure(agent, signal);
     const skills = [];
-    for (const skill of selection.skills) {
+    for (const skill of task.result.skills) {
       const local = current.source.skills.find(item => item.id === skill.skill_id);
       if (!local) throw new Error('路由结果已过期，请重新运行。');
-      const path = await realpath(local.path || join(item.sourcePath, local.id));
-      const entry = await native.get(local.name, { cwd, scope: agent, signal });
-      const expected = path.endsWith('SKILL.md') ? path : join(path, 'SKILL.md');
-      if (!entry?.invocation?.modelInvocable || !same(entry.path, expected)) {
-        return { accepted: false, preview: await library.prepareLocal(path.endsWith('SKILL.md') ? dirname(path) : path, signal), message: '这个技能尚未在目标对话中生效，请先预览并安装，或检查同名覆盖与预设。' };
+      const expected = await skillSourcePath(item, local);
+      const { entry, effectivePath, code } = await library.resolveRouteSkill({ libraryId: item.id, skillId: local.id, name: local.name,
+        expectedPath: expected, cwd, scope: agent, signal, invocation: 'modelInvocable' });
+      if (code) {
+        const preview = args.preview === false ? undefined : await installPreview(item, local, expected, code, signal);
+        return { ready: false, code, skillId: local.id, sourcePath: item.sourcePath,
+          message: `技能「${local.name}」：${loadingMessages[code] || loadingMessages.native_check_failed}`,
+          ...(entry?.path ? { actualPath: entry.path } : {}), ...(preview ? { preview } : {}) };
       }
-      skills.push({ ...skill, name: local.name, path: dirname(expected) });
+      skills.push({ ...skill, name: local.name, path: dirname(effectivePath) });
     }
     signal?.throwIfAborted();
-    return hostModel.use({ ...selection, skills }, sessionId, signal);
+    return { ready: true, sessionId: agent.id, libraryName: item.name, query: task.query, skills };
   }
   async function createDefault() {
     const sourcePath = join(library.home, 'skills');
@@ -540,7 +1057,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
     return lastPath ? { sourcePath: lastPath } : createDefault();
   }
   const analysisConversation = createAnalysisConversation(ctx, { root, selected, configured, hostModel, locks });
-  return { configured, start, reviewSample, analysisConversation, routeConversation, settings, listLibraries, connect, forget, tasks, getTask, latestEvaluation, publish, useRoute, useSkill, createDefault, createNamed, installTargets, install, config,
+  return { configured, start, reviewSample, analysisConversation, routeConversation, continueConversationRoute, settings, listLibraries, connect, forget, tasks, getTask, latestEvaluation, publish, useRoute, routeDraft, useSkill, skillStatus, createDefault, createNamed, installTargets, install, config,
     async cancel(args) { const task = await getTask(args.id); if (!['running', 'stopping'].includes(task.status)) return task; await ctx.jobs.kill(task.id, task.owner, '已从 SkillNet 面板取消'); return getTask(task.id); },
   };
 }

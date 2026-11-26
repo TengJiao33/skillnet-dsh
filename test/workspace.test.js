@@ -2,11 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { pythonExecutable } from '../src/backend.js';
 import { createWorkspace } from '../src/workspace.js';
+import { createLibrary } from '../src/library.js';
 import { createHash } from 'node:crypto';
 import { createTaskStore } from '../src/task-store.js';
 
@@ -23,6 +24,7 @@ test('saved evaluation returns the latest success for the selected skill, across
   for (const workspace of [f.workspace, createWorkspace(f.ctx, async () => ({}), { home: f.home })]) {
     const first = await workspace.latestEvaluation({ sourcePath: f.path, skillId: 'first' });
     assert.equal(first.id, 'skillnet-evaluate-a2'); assert.equal(first.result.safety.reason, 'first-latest');
+    assert.equal(first.versionStatus, 'unversioned');
     assert.equal((await workspace.latestEvaluation({ sourcePath: f.path, skillId: 'second' })).result.safety.reason, 'second-only');
     assert.equal(await workspace.latestEvaluation({ sourcePath: f.path, skillId: 'never-evaluated' }), null);
   }
@@ -57,20 +59,180 @@ async function fixture(t, hostModel, skills = []) {
   let wait = false;
   let stale = false;
   let graph = {};
+  let pendingProfiles = [];
+  let native;
+  let evaluate;
   const run = async (req, signal) => {
     requests.push(req);
-    if (req.action === 'settings') return { fields: Object.fromEntries(Object.entries(req._settings).map(([k, v]) => [k, { value: k.endsWith('key') ? Boolean(v) : v }])), checks: {} };
-    if (req.action === 'local-library') return { source: { skills }, graph: req.indexPath?.endsWith('invalid') ? null : graph, analysisError: req.indexPath?.endsWith('invalid') ? 'invalid analysis' : null, changedSkills: Number(stale), addedSkills: 0, removedSkills: 0 };
+    if (req.action === 'settings') return { fields: Object.fromEntries(Object.entries(req._settings).map(([k, v]) => [k, { value: (k.endsWith('key') || k === 'github_token') ? Boolean(v) : v }])), checks: {} };
+    if (req.action === 'local-library') return { source: { skills }, graph: req.indexPath?.endsWith('invalid') ? null : graph, analysisError: req.indexPath?.endsWith('invalid') ? 'invalid analysis' : null, changedSkills: Number(stale), addedSkills: 0, removedSkills: 0, pendingProfiles };
     if (wait) await new Promise((resolve, reject) => { release = resolve; signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true }) });
+    if (req.action === 'evaluate' && evaluate) return evaluate(req, signal);
     return { skill_count: 2 };
   };
-  const workspace = createWorkspace(ctx, run, { home, prepareLocal: async path => ({ path, previewId: 'fixture-preview' }) }, hostModel);
+  const resolver = createLibrary(run, { get: (name, options) => native?.get(name, options) }, { dshHome: home });
+  const workspace = createWorkspace(ctx, run, { ...resolver, prepareLocal: async (path, _signal, origin) => ({ path, origin, previewId: 'fixture-preview' }) }, hostModel);
   await workspace.settings({ values: { api_key: 'fixture-private-key', base_url: 'http://127.0.0.1:1/v1', model: 'fixture', embedding_api_key: 'fixture-embedding-key', embedding_base_url: 'http://127.0.0.1:1/v1', embedding_model: 'fixture-embedding', explorer_api_key: 'fixture-explorer-key', explorer_base_url: 'http://127.0.0.1:1/v1', explorer_model: 'fixture-explorer' } });
   await workspace.connect({ sourcePath: path });
   const item = (await workspace.listLibraries())[0];
-  return { home, path, workspace, ctx, requests, item, block: () => { wait = true }, release: () => release(), stale: () => { stale = true }, graph: value => { graph = value } };
+  return { home, path, workspace, ctx, requests, item, block: () => { wait = true }, release: () => release(), stale: () => { stale = true },
+    graph: value => { graph = value }, profiles: value => { pendingProfiles = value }, useNative: value => { native = value },
+    evaluate: value => { evaluate = value } };
 }
 const until = async predicate => { for (let i = 0; i < 100; i++) { if (await predicate()) return; await new Promise(r => setTimeout(r, 10)); } throw new Error('Task did not settle.'); };
+
+async function evaluationFixture(t, host, names) {
+  const skills = [];
+  const f = await fixture(t, host, skills);
+  for (const name of names) {
+    const directory = join(f.path, name);
+    await mkdir(directory);
+    const source = `---\nname: ${name}\ndescription: test evaluation\n---\nSee support.js.`;
+    const path = join(directory, 'SKILL.md');
+    await writeFile(path, source);
+    await writeFile(join(directory, 'support.js'), '// original supporting file');
+    skills.push({ id: name, name, path, source });
+  }
+  return f;
+}
+
+test('single evaluations bind supporting files and prefer a completed result for the current package version', async t => {
+  const f = await evaluationFixture(t, undefined, ['fixture']);
+  const args = { libraryId: f.item.id, skillId: 'fixture' };
+  const run = async () => {
+    const task = await f.workspace.start({ ...args, action: 'evaluate' });
+    await f.ctx.jobs.get(task.id).hooks.done;
+    return f.workspace.getTask(task.id);
+  };
+  const original = await run();
+  assert.equal(original.status, 'completed'); assert.match(original.sourceVersion, /^[\da-f]{64}$/);
+  assert.equal((await f.workspace.latestEvaluation(args)).versionStatus, 'current');
+  const support = join(f.path, 'fixture', 'support.js');
+  await writeFile(support, '// second supporting file');
+  assert.equal((await f.workspace.latestEvaluation(args)).versionStatus, 'historical');
+  const newer = await run();
+  assert.notEqual(newer.sourceVersion, original.sourceVersion);
+  await writeFile(support, '// original supporting file');
+  const restored = await f.workspace.latestEvaluation(args);
+  assert.equal(restored.versionStatus, 'current'); assert.equal(restored.id, original.id);
+  f.evaluate(async () => { await writeFile(support, '// modified during inference'); return { safety: { level: 'Good' } }; });
+  const changed = await run();
+  assert.equal(changed.status, 'failed'); assert.match(changed.error, /评估期间技能包已改变/);
+  assert.equal(changed.result, undefined);
+  assert.equal((await f.workspace.latestEvaluation(args)).versionStatus, 'historical');
+});
+
+test('batch evaluations retain per-skill history, reuse the chosen model on retry, and skip assessed package versions', async t => {
+  let captures = 0;
+  const host = { capture: async (_execution, id) => {
+    assert.equal(id, 'chosen-session'); captures++;
+    return { selection: { provider: 'fixture-host', model: 'chosen-model', reasoningEffort: 'low' }, sessionId: id };
+  } };
+  const f = await evaluationFixture(t, host, ['first', 'second', 'third']);
+  const args = { action: 'evaluate-batch', libraryId: f.item.id };
+  await assert.rejects(f.workspace.start(args), /明确选择/);
+  const evaluated = [];
+  let fail = true;
+  f.evaluate(async request => {
+    assert.deepEqual(request._host_model, { provider: 'fixture-host', model: 'chosen-model', reasoningEffort: 'low' });
+    const skill = basename(request.path); evaluated.push(skill);
+    if (skill === 'second' && fail) throw new Error('Second skill could not be evaluated.');
+    return { safety: { level: 'Good', reason: skill } };
+  });
+  const settled = async options => {
+    const job = await f.workspace.start({ ...args, ...options });
+    await f.ctx.jobs.get(job.id).hooks.done;
+    return f.workspace.getTask(job.id);
+  };
+  const first = await settled({ sessionId: 'chosen-session', batchMode: 'all' });
+  assert.equal(first.status, 'completed');
+  assert.deepEqual(evaluated, ['first', 'second', 'third']);
+  assert.equal(first.result.completed, 2); assert.equal(first.result.failed, 1);
+  assert.deepEqual(first.result.items.map(item => item.status), ['completed', 'failed', 'completed']);
+  const successful = await f.workspace.latestEvaluation({ libraryId: f.item.id, skillId: 'first' });
+  assert.equal(successful.id, first.result.items[0].taskId);
+  assert.equal(successful.versionStatus, 'current');
+
+  fail = false;
+  const retried = await settled({ retryTaskId: first.id });
+  assert.equal(captures, 1);
+  assert.deepEqual(retried.model, first.model); assert.equal(retried.sessionId, 'chosen-session');
+  assert.deepEqual(evaluated, ['first', 'second', 'third', 'second']);
+  assert.deepEqual(retried.result.items.map(item => [item.skillId, item.status]), [['second', 'completed']]);
+  assert.equal((await f.workspace.latestEvaluation({ libraryId: f.item.id, skillId: 'first' })).id, successful.id);
+
+  await writeFile(join(f.path, 'first', 'support.js'), '// a new package version');
+  const missing = await settled({ sessionId: 'chosen-session' });
+  assert.deepEqual(missing.result.items.map(item => item.status), ['completed', 'skipped', 'skipped']);
+  assert.equal(missing.result.skipped, 2);
+  assert.deepEqual(evaluated, ['first', 'second', 'third', 'second', 'first']);
+});
+
+test('batch cancellation preserves completed and failed evaluations and does not start queued skills', async t => {
+  const host = { capture: async () => ({ selection: { provider: 'fixture', model: 'evaluation-model' } }) };
+  const f = await evaluationFixture(t, host, ['completed', 'failed', 'running', 'queued']);
+  const entered = Promise.withResolvers();
+  const evaluated = [];
+  let failedOnce = false;
+  f.evaluate(async (request, signal) => {
+    const skill = basename(request.path); evaluated.push(skill);
+    if (skill === 'failed' && !failedOnce) { failedOnce = true; throw new Error('Transient evaluation error.'); }
+    if (skill === 'running') {
+      entered.resolve();
+      await new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    }
+    return { safety: { level: 'Good' } };
+  });
+  const start = params => f.workspace.start({ action: 'evaluate-batch', libraryId: f.item.id, modelSource: 'host', ...params });
+  const job = await start();
+  await entered.promise;
+  await assert.rejects(start(), /已有批量评估/);
+  await f.workspace.cancel({ id: job.id });
+  await f.ctx.jobs.get(job.id).hooks.done;
+  const result = await f.workspace.getTask(job.id);
+  assert.equal(result.status, 'killed');
+  assert.deepEqual(result.result.items.map(item => item.status), ['completed', 'failed', 'unattempted', 'unattempted']);
+  assert.deepEqual(evaluated, ['completed', 'failed', 'running']);
+  assert.equal((await f.workspace.latestEvaluation({ libraryId: f.item.id, skillId: 'completed' })).versionStatus, 'current');
+  const retry = await start({ retryTaskId: job.id });
+  await f.ctx.jobs.get(retry.id).hooks.done;
+  assert.deepEqual(evaluated, ['completed', 'failed', 'running', 'failed']);
+});
+
+test('independent model batch retry refuses changed SDK configuration before evaluating', async t => {
+  const f = await evaluationFixture(t, undefined, ['fixture']);
+  f.evaluate(async () => { throw new Error('Transient SDK error'); });
+  const args = { action: 'evaluate-batch', libraryId: f.item.id, modelSource: 'sdk' };
+  const job = await f.workspace.start(args);
+  await f.ctx.jobs.get(job.id).hooks.done;
+  assert.equal((await f.workspace.getTask(job.id)).result.failed, 1);
+  await f.workspace.settings({ values: { model: 'different-sdk-model' } });
+  await assert.rejects(f.workspace.start({ ...args, retryTaskId: job.id }), /模型配置已改变/);
+  assert.equal(f.requests.filter(request => request.action === 'evaluate').length, 1);
+});
+
+test('skill status reports selected package identity and independent invocation permissions without preview', async t => {
+  const agent = { id: 'target-session' };
+  const f = await evaluationFixture(t, { agentFor: async id => { assert.equal(id, agent.id); return agent; } }, ['fixture']);
+  f.ctx.workingDirectory = { ensure: async scope => { assert.equal(scope, agent); return f.path; } };
+  const expected = join(f.path, 'fixture', 'SKILL.md');
+  let entry = { path: expected, invocation: { modelInvocable: false, userInvocable: true } };
+  f.useNative({ get: async (name, { scope, cwd }) => {
+    assert.equal(name, 'fixture'); assert.equal(scope, agent); assert.equal(cwd, f.path);
+    return entry;
+  } });
+  const args = { libraryId: f.item.id, skillId: 'fixture', sessionId: agent.id };
+  assert.deepEqual(await f.workspace.skillStatus(args), { status: 'available', sourcePath: f.path, expectedPath: expected,
+    actualPath: expected, effectivePath: expected, modelInvocable: false, userInvocable: true });
+  entry = { path: join(f.home, 'shadow', 'SKILL.md'), invocation: { modelInvocable: true, userInvocable: true } };
+  const mismatch = await f.workspace.skillStatus(args);
+  assert.equal(mismatch.code, 'native_path_mismatch'); assert.equal(mismatch.actualPath, entry.path);
+  assert.equal(mismatch.modelInvocable, false); assert.equal(mismatch.userInvocable, false);
+  entry = undefined;
+  assert.equal((await f.workspace.skillStatus(args)).code, 'native_missing');
+  assert.equal(f.requests.some(request => request.action === 'check'), false);
+  await assert.rejects(stat(join(f.home, 'skillnet', 'previews')), { code: 'ENOENT' });
+});
 
 test('analysis progress names the active skill and retains its failure context', async t => {
   let release;
@@ -260,9 +422,14 @@ test('native personal libraries are named clearly and reopening preserves an exp
 
 test('settings use credential references and never write keys into plugin metadata', async t => {
   const f = await fixture(t);
-  const value = await f.workspace.settings();
+  const value = await f.workspace.settings({ values: { github_token: 'fixture-github-secret', github_mirror: 'https://mirror.example', skillnet_api_url: 'https://catalog.example' } });
   assert.equal(value.fields.api_key.value, true);
+  assert.equal(value.fields.github_mirror.value, 'https://mirror.example');
+  assert.equal(value.fields.skillnet_api_url.value, 'https://catalog.example');
+  assert.equal((await f.workspace.settings({ values: { github_token: '' } })).fields.github_token.value, true);
+  assert.equal((await f.workspace.settings({ clearSecrets: ['github_token'] })).fields.github_token, undefined);
   const json = await readFile(join(f.home, 'skillnet/settings.json'), 'utf8');
+  assert.doesNotMatch(json, /fixture-github-secret/);
   assert.doesNotMatch(json, /fixture-private-key|fixture-embedding-key|fixture-explorer-key/);
   await assert.rejects(f.workspace.settings({ values: { base_url: 'https://example.com/?key=secret' } }), /HTTP/);
 });
@@ -381,14 +548,61 @@ test('route use verifies effective native path, queues the target dialogue, and 
   await writeFile(join(f.home, 'skillnet/tasks', id + '.json'), JSON.stringify({ id, action: 'route', status: 'completed', startedAt: new Date().toISOString(), libraryId: f.item.id, query: '处理数据', result: { skills: [{ skill_id: 'fixture', name: 'fixture' }] } }));
   let effective = false;
   const native = { get: async (_name, options) => { assert.equal(options.scope, agent); return { path: effective ? join(path, 'SKILL.md') : join(f.home, 'shadow/SKILL.md'), invocation: { modelInvocable: true } }; } };
-  assert.equal((await f.workspace.useRoute({ id, sessionId: 'target' }, native)).accepted, false);
+  f.useNative(native);
+  assert.equal((await f.workspace.useRoute({ id, sessionId: 'target' })).accepted, false);
   assert.equal(queued, 0);
   effective = true;
-  assert.equal((await f.workspace.useRoute({ id, sessionId: 'target' }, native)).accepted, true);
+  assert.equal((await f.workspace.useRoute({ id, sessionId: 'target' })).accepted, true);
   assert.equal(queued, 1);
+  f.profiles(['pending']);
+  await assert.rejects(f.workspace.useRoute({ id, sessionId: 'target' }), /索引缺少部分技能画像/);
+  f.profiles([]);
   f.stale();
-  await assert.rejects(f.workspace.useRoute({ id, sessionId: 'target' }, native), /重新建图/);
+  await assert.rejects(f.workspace.useRoute({ id, sessionId: 'target' }), /重新建图/);
   assert.equal(queued, 1);
+});
+
+test('route-draft prepares the selected result for the requested dialogue without sending it', async t => {
+  const agent = { id: 'target-dialogue' };
+  const host = {
+    agentFor: async id => { assert.equal(id, agent.id); return agent; },
+    use: async () => assert.fail('Preparing a route draft sent a follow-up.'),
+  };
+  const skills = [];
+  const f = await fixture(t, host, skills);
+  const sourcePath = join(f.home, 'reports');
+  const path = join(sourcePath, 'fixture');
+  const expectedPath = join(path, 'SKILL.md');
+  const shadowPath = join(f.home, 'project', 'fixture', 'SKILL.md');
+  await mkdir(path, { recursive: true }); await writeFile(expectedPath, 'fixture');
+  skills.push({ id: 'fixture', name: 'fixture', path: expectedPath });
+  const item = (await f.workspace.connect({ sourcePath })).connection;
+  const id = 'skillnet-route-abd0';
+  await createTaskStore(join(f.home, 'skillnet')).write({ id, action: 'route', retrievalMode: 'vector', status: 'completed',
+    startedAt: new Date().toISOString(), libraryId: item.id, query: '检查报表再生成看板',
+    result: { skills: [{ skill_id: 'fixture', name: 'fixture' }] } });
+  let nativePath = shadowPath;
+  f.ctx.workingDirectory = { ensure: async scope => { assert.equal(scope, agent); return f.path; } };
+  f.useNative({ get: async (name, { cwd, scope }) => {
+    assert.equal(name, 'fixture'); assert.equal(cwd, f.path); assert.equal(scope, agent);
+    return { path: nativePath, invocation: { userInvocable: false, modelInvocable: true } };
+  } });
+  await assert.rejects(f.workspace.routeDraft({ id }), /选择要使用的 DSH 对话/);
+  const args = { id, sessionId: agent.id };
+  const blocked = await f.workspace.routeDraft(args);
+  assert.equal(blocked.ready, false); assert.equal(blocked.code, 'native_path_mismatch');
+  assert.equal(blocked.actualPath, shadowPath); assert.equal(blocked.skillId, 'fixture');
+  assert.equal(blocked.sourcePath, sourcePath);
+  assert.deepEqual(blocked.preview.origin, { libraryId: item.id, skillId: 'fixture' });
+  const diagnosis = await f.workspace.routeDraft({ ...args, preview: false });
+  assert.equal(diagnosis.code, blocked.code); assert.equal(diagnosis.preview, undefined);
+  nativePath = expectedPath;
+  const draft = await f.workspace.routeDraft(args);
+  assert.equal(draft.ready, true);
+  assert.equal(draft.sessionId, agent.id);
+  assert.match(draft.prompt, /reports/); assert.match(draft.prompt, /fixture/); assert.match(draft.prompt, /检查报表再生成看板/);
+  f.stale();
+  await assert.rejects(f.workspace.routeDraft(args), /重新建图/);
 });
 
 test('failed custom-index reads do not commit, and source-only reconnect preserves the saved index', async t => {
@@ -466,13 +680,14 @@ test('model route handoff works without a graph and refuses changed, added or re
   const versions = { fixture: createHash('sha256').update('fixture\n').digest('hex') };
   await writeFile(join(f.home, 'skillnet/tasks', id + '.json'), JSON.stringify({ id, action: 'route', retrievalMode: 'model', status: 'completed', startedAt: new Date().toISOString(), libraryId: f.item.id, query: '处理数据', result: { skills: [{ skill_id: 'fixture', name: 'fixture' }], source_versions: versions } }));
   const native = { get: async () => ({ path: join(path, 'SKILL.md'), invocation: { modelInvocable: true } }) };
-  assert.equal((await f.workspace.useRoute({ id }, native)).accepted, true);
+  f.useNative(native);
+  assert.equal((await f.workspace.useRoute({ id })).accepted, true);
   skills[0].source = 'changed';
-  await assert.rejects(f.workspace.useRoute({ id }, native), /重新运行路由/);
+  await assert.rejects(f.workspace.useRoute({ id }), /重新运行路由/);
   skills[0].source = 'fixture\n'; skills.push({ id: 'new', source: 'new' });
-  await assert.rejects(f.workspace.useRoute({ id }, native), /重新运行路由/);
+  await assert.rejects(f.workspace.useRoute({ id }), /重新运行路由/);
   skills.splice(0);
-  await assert.rejects(f.workspace.useRoute({ id }, native), /重新运行路由/);
+  await assert.rejects(f.workspace.useRoute({ id }), /重新运行路由/);
   assert.equal(used, 1);
 });
 
@@ -483,33 +698,45 @@ test('preparing a skill draft checks user invocation and the effective path with
     use: async () => { throw new Error('Preparing a draft must never send a message.'); },
   };
   const skills = []; const f = await fixture(t, host, skills); f.graph(null);
-  const path = join(f.path, 'fixture'); await mkdir(path); await writeFile(join(path, 'SKILL.md'), 'fixture');
+  const sourcePath = join(f.home, 'reports');
+  const path = join(sourcePath, 'fixture'); await mkdir(path, { recursive: true }); await writeFile(join(path, 'SKILL.md'), 'fixture');
   skills.push({ id: 'fixture', name: 'fixture', path: join(path, 'SKILL.md'), source: 'fixture' });
+  const reports = (await f.workspace.connect({ sourcePath })).connection;
   f.ctx.workingDirectory = { ensure: async scope => { assert.equal(scope, agent); return f.path } };
   let effective = true, callable = true;
   const native = { get: async (name, options) => {
     assert.equal(name, 'fixture'); assert.equal(options.scope, agent); assert.equal(options.cwd, f.path);
     return { path: effective ? join(path, 'SKILL.md') : join(f.home, 'shadow/SKILL.md'), invocation: { userInvocable: callable, modelInvocable: false } };
   } };
+  f.useNative(native);
   f.requests.splice(0);
-  const args = { sourcePath: f.path, skillId: 'fixture', sessionId: 'chosen-dialogue', query: '画论文图' };
-  const prepared = await f.workspace.useSkill(args, native);
+  const args = { sourcePath, skillId: 'fixture', sessionId: 'chosen-dialogue', query: '画论文图' };
+  const prepared = await f.workspace.useSkill(args);
   assert.equal(prepared.ready, true);
   assert.equal(prepared.reference, '/fixture ');
   assert.equal(prepared.sessionId, 'chosen-dialogue');
-  assert.deepEqual(prepared.skill, { name: 'fixture', path: join(path, 'SKILL.md') });
+  assert.deepEqual(prepared.skill, { name: 'fixture', path: join(path, 'SKILL.md'), userInvocable: true, modelInvocable: false });
   assert.equal(Object.hasOwn(prepared, 'query'), false);
-  assert.equal((await f.workspace.useSkill({ ...args, query: '' }, native)).reference, '/fixture ');
+  assert.equal((await f.workspace.useSkill({ ...args, query: '' })).reference, '/fixture ');
   for (const state of ['shadowed', 'disabled']) {
     effective = state !== 'shadowed'; callable = state !== 'disabled';
-    const result = await f.workspace.useSkill(args, native);
-    assert.equal(result.ready, false); assert.equal(result.preview.path, path);
+    const result = await f.workspace.useSkill(args);
+    assert.equal(result.ready, false);
+    if (state === 'shadowed') {
+      assert.equal(result.code, 'native_path_mismatch');
+      assert.equal(result.preview.path, path);
+      assert.deepEqual(result.preview.origin, { libraryId: reports.id, skillId: 'fixture' });
+      assert.equal((await f.workspace.useSkill({ ...args, preview: false })).preview, undefined);
+    } else {
+      assert.equal(result.code, 'native_not_invocable');
+      assert.equal(result.preview, undefined);
+    }
   }
   assert.equal(sent.length, 0);
-  await assert.rejects(f.workspace.useSkill({ ...args, skillId: '../outside' }, native), /不在当前库/);
-  await assert.rejects(f.workspace.useSkill({ ...args, sourcePath: f.home }, native), /连接/);
+  await assert.rejects(f.workspace.useSkill({ ...args, skillId: '../outside' }), /不在当前库/);
+  await assert.rejects(f.workspace.useSkill({ ...args, sourcePath: f.home }), /连接/);
   skills.splice(0);
-  await assert.rejects(f.workspace.useSkill(args, native), /已不在当前库/);
+  await assert.rejects(f.workspace.useSkill(args), /已不在当前库/);
   assert.ok(f.requests.every(request => request.action === 'local-library'));
   assert.equal((await f.workspace.tasks()).items.length, 0);
 });

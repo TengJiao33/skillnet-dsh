@@ -21,11 +21,12 @@ class Handler(BaseHTTPRequestHandler):
             output = {'object': 'list', 'model': 'fixture-embedding', 'data': [{'object': 'embedding', 'index': i, 'embedding': [1.0, 0.2, 0.3, 0.4]} for i, _ in enumerate(request['input'])], 'usage': {'prompt_tokens': 1, 'total_tokens': 1}}
         else:
             messages = request['messages']
-            schema = request.get('response_format', {}).get('json_schema', {}).get('name')
-            if schema == 'SkillProfile':
+            schema = request.get('response_format', {}).get('json_schema', {})
+            properties = schema.get('schema', {}).get('properties', {})
+            if schema.get('name') == 'SkillProfile' or 'capability' in properties:
                 field = {'text': 'Process fixture data', 'evidence': [{'line': 6}]}
                 content = {'capability': field, 'when_to_use': [field], 'inputs': [field], 'outputs': [field], 'constraints': [], 'tools': [], 'scenarios': [{'name': 'Data processing', 'before': [field], 'after': [field]}]}
-            elif schema == 'RelationJudgment':
+            elif schema.get('name') == 'RelationJudgment' or 'decision' in properties:
                 pair = json.loads(messages[-1]['content'])['skills']
                 content = {'decision': {'outcome': 'related', 'relations': [{'source': pair[0]['skill_id'], 'target': pair[1]['skill_id'], 'type': 'compose_with', 'contexts': [{'scenario': 'Data processing', 'explanation': 'Pass output to the next skill.', 'conditions': [], 'source_evidence': [{'line': 6}], 'target_evidence': [{'line': 6}]}]}]}}
             elif 'expert evaluator' in str(messages[0].get('content', '')):

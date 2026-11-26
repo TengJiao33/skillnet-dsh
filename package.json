@@ -23,6 +23,7 @@
   "files": [
     "src",
     "python/worker.py",
+    "python/document_preview.py",
     "python/host_adapter.py",
     "python/graph_build.py",
     "python/prompts.py",

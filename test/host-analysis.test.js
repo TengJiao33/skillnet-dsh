@@ -697,7 +697,9 @@ test('default model routing explores current sources before any graph and keeps 
   const infer = async payload => {
     assert.equal(payload.method, 'explore');
     assert.match(payload.system, /read_wiki/); assert.match(payload.system, /JSON schema:/);
-    assert.match(payload.prompt, /Process CSV rows/);
+    const prompt = JSON.parse(payload.prompt);
+    assert.equal(prompt.task, 'Process CSV rows');
+    assert.deepEqual(prompt.candidates.map(candidate => candidate.id), ['csv-first', 'csv-second']);
     wiki = payload.root;
     const index = await readFile(join(wiki, 'index.md'), 'utf8');
     assert.match(index, /csv-first/); assert.match(index, /csv-second/);

@@ -82,6 +82,279 @@ test('complete package installs, persists and preserves local edits through remo
   assert.equal(await readFile(join(record.path, 'scripts/helper.txt'), 'utf8'), 'user edit');
 });
 
+test('installation inventory requires SKILL.md and keeps removed records available for restoration', async t => {
+  const f = await fixture(t);
+  const preview = await f.library.prepare({ url: 'fixture://source' });
+  const record = await f.library.install({ previewId: preview.previewId, scope: 'user' });
+  const marker = join(record.path, 'SKILL.md');
+  const displaced = join(record.path, 'instructions.txt');
+  await rename(marker, displaced);
+  const incomplete = (await f.library.list()).installed[0];
+  assert.equal(incomplete.state, 'installed');
+  assert.equal(incomplete.exists, false);
+  assert.equal(incomplete.native, null);
+  await rename(displaced, marker);
+  assert.equal((await f.library.list()).installed[0].exists, true);
+  await f.library.remove({ id: record.id });
+  await cp(f.source, record.path, { recursive: true });
+  const removed = (await f.library.list()).installed[0];
+  assert.equal(removed.state, 'removed');
+  assert.equal(removed.exists, false);
+  await assert.rejects(f.library.restore({ id: record.id }), /不会覆盖/);
+  assert.equal(await readFile(join(record.path, 'scripts', 'helper.txt'), 'utf8'), 'original helper');
+});
+
+const remoteBranch = 'https://github.com/example/skills/tree/main/fixture-skill';
+const remoteCommit = 'https://github.com/example/skills/tree/0123456789abcdef0123456789abcdef01234567/fixture-skill';
+
+async function remoteInstallation(f, url = remoteBranch) {
+  const requests = [];
+  const run = async (request, signal) => {
+    requests.push(request);
+    return f.run(request, signal);
+  };
+  const library = createLibrary(run, f.skills, { dshHome: f.home });
+  const preview = await library.prepare({ url });
+  const record = await library.install({ previewId: preview.previewId, scope: 'user' });
+  const metadata = join(f.home, 'skillnet', 'installations', record.id + '.json');
+  return { library, record, requests, metadata };
+}
+
+test('remote update previews the complete package and publishes the exact confirmed bytes with a backup', async t => {
+  const f = await fixture(t);
+  const { library, record, requests } = await remoteInstallation(f);
+  const installed = join(record.path, 'SKILL.md');
+  const marker = join(f.source, 'SKILL.md');
+  const original = await readFile(marker, 'utf8');
+  const replacement = original.replace('Test fixture instructions', 'Updated fixture instructions');
+  assert.equal(record.packageVersion, await library.sourcePackageVersion(installed));
+  await writeFile(marker, replacement);
+  await rename(join(f.source, 'scripts', 'helper.txt'), join(f.source, 'scripts', 'new-helper.txt'));
+  const preview = await library.previewUpdate({ id: record.id });
+  assert.equal(preview.status, 'ready');
+  assert.equal(preview.url, remoteBranch);
+  assert.equal(preview.targetPath, record.path);
+  assert.equal(preview.currentSource, original);
+  assert.equal(preview.remoteSource, replacement);
+  assert.deepEqual(preview.changes, [
+    { path: 'SKILL.md', kind: 'modified' },
+    { path: 'scripts/helper.txt', kind: 'removed' },
+    { path: 'scripts/new-helper.txt', kind: 'added' },
+  ]);
+  assert.equal(await readFile(installed, 'utf8'), original);
+
+  await writeFile(marker, replacement + '\nRemote changed again.\n');
+  const confirm = { id: record.id, previewId: preview.previewId };
+  const [first, second] = await Promise.allSettled([library.applyUpdate(confirm), library.applyUpdate(confirm)]);
+  assert.equal(first.status, 'fulfilled', first.reason?.stack);
+  assert.equal(second.status, 'rejected');
+  assert.match(second.reason.message, /已改变/);
+  const updated = first.value;
+  assert.equal(updated.id, record.id);
+  assert.equal(updated.url, remoteBranch);
+  assert.equal(updated.description, 'Updated fixture instructions');
+  assert.equal(updated.packageVersion, preview.remoteVersion);
+  assert.equal(await readFile(installed, 'utf8'), replacement);
+  assert.equal(await readFile(join(updated.backupPath, 'SKILL.md'), 'utf8'), original);
+  assert.equal(await readFile(join(updated.backupPath, 'scripts', 'helper.txt'), 'utf8'), 'original helper');
+  assert.deepEqual(requests.filter(request => request.action === 'inspect').map(request => request.url), [remoteBranch, remoteBranch]);
+});
+
+test('fixed commits stay fixed and legacy baselines require byte-for-byte agreement', async t => {
+  const f = await fixture(t);
+  const { library, record, requests, metadata } = await remoteInstallation(f, remoteCommit);
+  const { packageVersion, ...legacy } = JSON.parse(await readFile(metadata, 'utf8'));
+  await writeFile(metadata, JSON.stringify(legacy));
+  const helper = join(record.path, 'scripts', 'helper.txt');
+  await writeFile(helper, 'unverified local change');
+  const blocked = await library.previewUpdate({ id: record.id });
+  assert.equal(blocked.status, 'blocked');
+  assert.equal(blocked.code, 'baseline_unknown');
+  assert.equal(blocked.previewId, undefined);
+  assert.equal(await readFile(helper, 'utf8'), 'unverified local change');
+  await writeFile(helper, 'original helper');
+  const comparison = await library.previewUpdate({ id: record.id });
+  assert.equal(comparison.status, 'unchanged');
+  assert.deepEqual(comparison.changes, []);
+  assert.equal(comparison.previewId, undefined);
+  assert.equal(JSON.parse(await readFile(metadata, 'utf8')).packageVersion, packageVersion);
+  assert.deepEqual(requests.filter(request => request.action === 'inspect').map(request => request.url), [remoteCommit, remoteCommit, remoteCommit]);
+});
+
+test('remote update refuses changes to the local package, preview, install record and name ownership', async t => {
+  const f = await fixture(t);
+  const { library, record, metadata } = await remoteInstallation(f);
+  await writeFile(join(f.source, 'scripts', 'helper.txt'), 'remote helper');
+  const request = { id: record.id };
+  const { previewId } = await library.previewUpdate(request);
+  const apply = { ...request, previewId };
+  const installedHelper = join(record.path, 'scripts', 'helper.txt');
+  await writeFile(installedHelper, 'latest user edit');
+  await assert.rejects(library.applyUpdate(apply), /已改变/);
+  const blocked = await library.previewUpdate(request);
+  assert.equal(blocked.code, 'local_modified');
+  assert.equal(await readFile(installedHelper, 'utf8'), 'latest user edit');
+  await writeFile(installedHelper, 'original helper');
+
+  const flat = record.path + '.md';
+  await writeFile(flat, 'manual same-name skill');
+  await assert.rejects(library.applyUpdate(apply), /同名/);
+  assert.equal(await readFile(flat, 'utf8'), 'manual same-name skill');
+  await rm(flat);
+  const duplicate = { ...JSON.parse(await readFile(metadata, 'utf8')), id: randomUUID() };
+  const duplicatePath = join(metadata, '..', duplicate.id + '.json');
+  await writeFile(duplicatePath, JSON.stringify(duplicate));
+  await assert.rejects(library.applyUpdate(apply), /多个记录/);
+  await rm(duplicatePath);
+
+  const outside = join(f.root, 'outside');
+  await mkdir(outside);
+  const linked = join(record.path, 'references');
+  await symlink(outside, linked, process.platform === 'win32' ? 'junction' : 'dir');
+  await assert.rejects(library.applyUpdate(apply), /已改变/);
+  assert.equal((await lstat(linked)).isSymbolicLink(), true);
+  await rm(linked);
+
+  const stagedHelper = join(f.home, 'skillnet', 'update-staging', previewId, record.name, 'scripts', 'helper.txt');
+  await writeFile(stagedHelper, 'unexpected preview edit');
+  await assert.rejects(library.applyUpdate(apply), /远端预览.*已改变/);
+  assert.equal(await readFile(installedHelper, 'utf8'), 'original helper');
+  await library.remove(request);
+  await assert.rejects(library.applyUpdate(apply), /已移除/);
+});
+
+test('update journal restores an interrupted backup and preserves both copies if another package occupies the path', async t => {
+  const f = await fixture(t);
+  const { library, record, metadata } = await remoteInstallation(f);
+  await writeFile(join(f.source, 'scripts', 'helper.txt'), 'remote helper');
+  const preview = await library.previewUpdate({ id: record.id });
+  const data = JSON.parse(await readFile(metadata, 'utf8'));
+  const interrupted = { ...data, operation: 'update', pendingUpdate: {
+    previewId: preview.previewId, currentVersion: preview.currentVersion, remoteVersion: preview.remoteVersion,
+    description: record.description, updatedAt: new Date().toISOString(),
+  } };
+  const backup = join(f.home, 'skillnet', 'versions', record.id, preview.previewId, record.name);
+  await mkdir(join(backup, '..'), { recursive: true });
+  await writeFile(metadata, JSON.stringify(interrupted));
+  await rename(record.path, backup);
+  const reopened = createLibrary(f.run, f.skills, { dshHome: f.home });
+  const repaired = (await reopened.list()).installed[0];
+  assert.equal(repaired.packageVersion, preview.currentVersion);
+  assert.equal(repaired.operation, undefined);
+  assert.equal(await readFile(join(record.path, 'scripts', 'helper.txt'), 'utf8'), 'original helper');
+
+  await writeFile(metadata, JSON.stringify(interrupted));
+  await rename(record.path, backup);
+  await cp(f.source, record.path, { recursive: true });
+  const helper = join(record.path, 'scripts', 'helper.txt');
+  await writeFile(helper, 'another local package');
+  const conflict = (await reopened.list()).installed[0];
+  assert.equal(conflict.operation, 'update');
+  assert.match(conflict.recoveryWarning, /路径冲突/);
+  await assert.rejects(reopened.remove({ id: record.id }), /尚未恢复/);
+  assert.equal(await readFile(helper, 'utf8'), 'another local package');
+  assert.equal(await readFile(join(backup, 'scripts', 'helper.txt'), 'utf8'), 'original helper');
+
+  await writeFile(helper, 'remote helper');
+  const completed = (await reopened.list()).installed[0];
+  assert.equal(completed.operation, undefined);
+  assert.equal(completed.packageVersion, preview.remoteVersion);
+  assert.equal(completed.backupPath, backup);
+});
+
+test('scoped resolution keeps the original path and checks the requested native permission', async t => {
+  const f = await fixture(t);
+  const cwd = f.root;
+  const scope = { id: 'chat' };
+  const signal = new AbortController().signal;
+  const expectedPath = join(f.source, 'SKILL.md');
+  const entry = { path: expectedPath, invocation: { modelInvocable: false, userInvocable: true } };
+  const registry = { async get(name, options) {
+    assert.equal(name, 'fixture-skill');
+    assert.deepEqual(options, { cwd, scope, signal });
+    return entry;
+  } };
+  const library = createLibrary(f.run, registry, { dshHome: f.home });
+  const args = { libraryId: randomUUID(), skillId: 'fixture-skill', name: 'fixture-skill', expectedPath, cwd, scope, signal };
+  assert.deepEqual(await library.resolveRouteSkill(args), { entry, effectivePath: null, code: 'native_not_invocable' });
+  assert.deepEqual(await library.resolveRouteSkill({ ...args, invocation: 'userInvocable' }), { entry, effectivePath: expectedPath, code: null });
+});
+
+test('route-origin installation proves the complete current package and reuses the same installation', async t => {
+  const f = await fixture(t);
+  const origin = { libraryId: randomUUID(), skillId: 'fixture-skill' };
+  const expectedPath = join(f.source, 'SKILL.md');
+  const args = { ...origin, name: 'fixture-skill', expectedPath };
+  assert.equal((await f.library.resolveRouteSkill(args)).code, 'native_missing');
+  const preview = await f.library.prepareLocal(f.source, undefined, origin);
+  const install = { previewId: preview.previewId, scope: 'user' };
+  const record = await f.library.install(install);
+  assert.deepEqual(record.origin, { ...origin, version: await f.library.sourcePackageVersion(expectedPath) });
+  const reopened = createLibrary(f.run, f.skills, { dshHome: f.home });
+  const matched = await reopened.resolveRouteSkill(args);
+  assert.equal(matched.code, null);
+  assert.equal(matched.effectivePath, join(record.path, 'SKILL.md'));
+  assert.equal((await reopened.resolveRouteSkill({ ...args, libraryId: randomUUID() })).code, 'installed_copy_unverified');
+  assert.equal((await reopened.resolveRouteSkill({ ...args, skillId: 'different-skill' })).code, 'installed_copy_unverified');
+  const repeat = await reopened.install(install);
+  assert.equal(repeat.id, record.id);
+  assert.equal(repeat.reused, true);
+  assert.equal((await reopened.list()).installed.length, 1);
+  await reopened.remove({ id: record.id });
+  assert.equal((await reopened.resolveRouteSkill(args)).code, 'native_missing');
+  await reopened.restore({ id: record.id });
+  assert.equal((await reopened.resolveRouteSkill(args)).code, null);
+  const cwd = join(f.root, 'project');
+  const shadow = join(cwd, '.dsh', 'skills', 'fixture-skill');
+  await cp(f.source, shadow, { recursive: true });
+  const shadowed = await reopened.resolveRouteSkill({ ...args, cwd });
+  assert.equal(shadowed.code, 'native_path_mismatch');
+  assert.equal(shadowed.entry.path, join(shadow, 'SKILL.md'));
+  const installedHelper = join(record.path, 'scripts', 'helper.txt');
+  await writeFile(installedHelper, 'changed installed helper');
+  assert.equal((await reopened.resolveRouteSkill(args)).code, 'installed_copy_stale');
+  await assert.rejects(reopened.install(install), /同名/);
+  assert.equal(await readFile(installedHelper, 'utf8'), 'changed installed helper');
+  await writeFile(installedHelper, 'original helper');
+  await writeFile(join(f.source, 'scripts', 'helper.txt'), 'changed source helper');
+  assert.equal((await reopened.resolveRouteSkill(args)).code, 'installed_copy_stale');
+  await assert.rejects(reopened.install(install), /重新预览/);
+  assert.equal(await readFile(installedHelper, 'utf8'), 'original helper');
+});
+
+test('identical untracked and different-origin personal packages never qualify as route copies', async t => {
+  const f = await fixture(t);
+  const original = await f.library.prepare({ url: 'fixture://source' });
+  const legacy = await f.library.install({ previewId: original.previewId, scope: 'user' });
+  const origin = { libraryId: randomUUID(), skillId: 'fixture-skill' };
+  const args = { ...origin, name: 'fixture-skill', expectedPath: join(f.source, 'SKILL.md') };
+  const preview = await f.library.prepareLocal(f.source, undefined, origin);
+  const request = { previewId: preview.previewId, scope: 'user' };
+  assert.equal((await f.library.resolveRouteSkill(args)).code, 'installed_copy_unverified');
+  await assert.rejects(f.library.install(request), /同名/);
+  await f.library.remove({ id: legacy.id });
+  const differentOrigin = await f.library.prepareLocal(f.source, undefined, { ...origin, libraryId: randomUUID() });
+  const other = await f.library.install({ ...request, previewId: differentOrigin.previewId });
+  assert.equal((await f.library.resolveRouteSkill(args)).code, 'installed_copy_unverified');
+  await assert.rejects(f.library.install(request), /同名/);
+  assert.equal(await readFile(join(other.path, 'scripts', 'helper.txt'), 'utf8'), 'original helper');
+});
+
+test('a route preview cannot publish altered staging or a linked package', async t => {
+  const f = await fixture(t);
+  const origin = { libraryId: randomUUID(), skillId: 'fixture-skill' };
+  const preview = await f.library.prepareLocal(f.source, undefined, origin);
+  const staged = join(f.home, 'skillnet', 'staging', preview.previewId, 'fixture-skill');
+  await writeFile(join(staged, 'scripts', 'helper.txt'), 'edit after preview');
+  await assert.rejects(f.library.install({ previewId: preview.previewId, scope: 'user' }), /重新预览/);
+  assert.equal((await f.library.list()).installed.length, 0);
+  const outside = join(f.root, 'unrelated');
+  await mkdir(outside);
+  await symlink(outside, join(f.source, 'references'), process.platform === 'win32' ? 'junction' : 'dir');
+  await assert.rejects(f.library.prepareLocal(f.source, undefined, origin), /链接/);
+  await assert.rejects(f.library.sourcePackageVersion(join(f.source, 'SKILL.md'), AbortSignal.abort()), { name: 'AbortError' });
+});
+
 test('named libraries keep their identity and install separately from the personal library', async t => {
   const f = await fixture(t);
   const run = async request => {

@@ -1,4 +1,4 @@
-"""Isolated model jobs and a reusable read-only SDK library reader."""
+"""Isolated model jobs, a reusable library reader, and serial bridged routing."""
 
 import contextlib
 import importlib.metadata
@@ -44,6 +44,10 @@ def chinese_message(message):
 
 
 def execute(request):
+    if request.get("action") == "document-preview":
+        from document_preview import preview_document
+        return preview_document(request)
+
     from skillnet_ai import SkillNetClient
     from skillnet_ai.core.validation import parse_frontmatter, validate_skill
 
@@ -218,7 +222,7 @@ def describe(root, url=None):
     }
 
 
-def respond(line, library_reader=False):
+def respond(line, library_reader=False, route_service=False):
     try:
         request = json.loads(line)
         if not isinstance(request, dict):
@@ -227,6 +231,8 @@ def respond(line, library_reader=False):
             if request.get('action') != 'local-library':
                 raise ValueError('这个进程仅支持读取技能库。')
             request = {key: request[key] for key in ('action', 'sourcePath', 'indexPath') if key in request}
+        if route_service and (request.get('action') != 'route' or not request.get('_host_model')):
+            raise ValueError('这个进程仅支持当前 DSH 模型的技能路由。')
         with contextlib.redirect_stdout(sys.stderr):
             data = execute(request)
         result = {"ok": True, "data": data, "error": None}
@@ -246,6 +252,22 @@ def main():
     if '--library-reader' in sys.argv[1:]:
         for line in sys.stdin:
             respond(line, library_reader=True)
+        return 0
+    if '--route-service' in sys.argv[1:]:
+        from skillnet_ai.core.config import ENVIRONMENT
+
+        # execute() overlays per-request settings. Restore the process defaults
+        # even on errors so subsequent routes cannot inherit old credentials.
+        defaults = {name: os.environ.get(name) for name in ENVIRONMENT.values()}
+        while line := sys.stdin.readline():
+            try:
+                respond(line, route_service=True)
+            finally:
+                for name, value in defaults.items():
+                    if value is None:
+                        os.environ.pop(name, None)
+                    else:
+                        os.environ[name] = value
         return 0
     return respond(sys.stdin.readline())
 

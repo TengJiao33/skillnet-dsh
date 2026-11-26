@@ -50,7 +50,9 @@ export function createHostModel(ctx) {
     signal?.throwIfAborted();
     return info?.reasoning?.efforts?.map(effort => effort.id) ?? [];
   }
-  async function forRelationReview(model, signal) {
+  async function forLowEffort(model, signal) {
+    signal?.throwIfAborted();
+    if (['low', 'off'].includes(model.selection.reasoningEffort)) return model;
     const offered = await reasoningEfforts(model, signal);
     const reasoningEffort = ['low', 'off'].find(level => offered.includes(level));
     return reasoningEffort ? { ...model, selection: { ...model.selection, reasoningEffort } } : model;
@@ -150,5 +152,5 @@ export function createHostModel(ctx) {
     await agent.followup(userMessage(prompt));
     return { sessionId: agent.id, accepted: true };
   }
-  return { contexts, capture, reasoningEfforts, forRelationReview, invoke, conversation, agentFor, use };
+  return { contexts, capture, reasoningEfforts, forRelationReview: forLowEffort, forRoute: forLowEffort, invoke, conversation, agentFor, use };
 }
