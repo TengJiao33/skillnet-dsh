@@ -6,7 +6,8 @@ import { createWorkspace, reviewSampleFile } from './workspace.js';
 import { createHostModel } from './host-model.js';
 import { createSearch } from './search.js';
 import { createCatalog } from './catalog.js';
-import { BUILD_REVISION } from './build-info.js';
+import { BUILD_REVISION, PACKAGE_VERSION } from './build-info.js';
+import { previewDocument } from './document-preview.js';
 
 export const name = 'skillnet';
 export const inject = ['connection', 'tools', 'commands', 'subprocess', 'skills', 'workingDirectory', 'jobs', 'credentials', 'agents', 'sessions', 'sessionController', 'workspaceRegistry', 'systemPrompt', 'agentDefaultModel', 'llm'];
@@ -63,7 +64,7 @@ export function apply(ctx, config = {}) {
     handler: invocation => workspace.analysisConversation.confirm(invocation),
   });
   const handlers = {
-    status: async (_args, signal) => ({ ...await run({ action: 'status' }, signal), home: library.home, version: '0.5.0', runtime: { build: BUILD_REVISION, clientBuild, loadedAt, pid: process.pid } }),
+    status: async (_args, signal) => ({ ...await run({ action: 'status' }, signal), home: library.home, version: PACKAGE_VERSION, runtime: { build: BUILD_REVISION, clientBuild, loadedAt, pid: process.pid } }),
     'client-ready': args => {
       if (args.revision !== BUILD_REVISION) throw new Error('插件前后端版本不一致。');
       clientBuild = args.revision;
@@ -82,7 +83,7 @@ export function apply(ctx, config = {}) {
     restore: (args, signal) => library.restore(args, signal),
     'update-preview': (args, signal) => library.previewUpdate(args, signal),
     'update-apply': (args, signal) => library.applyUpdate(args, signal),
-    'document-preview': (args, signal) => backend({ action: 'document-preview', name: args.name, data: args.data }, signal),
+    'document-preview': (args, signal) => previewDocument(args, backend, signal),
     'workspace-config': () => workspace.config(),
     'workspace-create': (args, signal) => Object.hasOwn(args, 'name') ? workspace.createNamed(args, signal) : workspace.createDefault(),
     'workspace-read': (args, signal) => workspace.connect(args, signal),

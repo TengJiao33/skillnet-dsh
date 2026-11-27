@@ -653,6 +653,7 @@ test('default DSH analysis and routing need no embedding settings; vector mode s
   assert.equal((await f.workspace.getTask(task.id)).status, 'completed');
   for (const action of ['analyze', 'route']) {
     const task = await f.workspace.start({ action, libraryId: f.item.id, query: 'CSV' });
+    assert.equal((await f.workspace.tasks({ action, sourcePath: f.path })).items[0].id, task.id);
     await f.ctx.jobs.get(task.id).hooks.done;
     assert.equal((await f.workspace.getTask(task.id)).retrievalMode, 'model');
     assert.equal(f.requests.findLast(item => item.action === action).retrievalMode, 'model');

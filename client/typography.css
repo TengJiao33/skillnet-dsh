@@ -48,13 +48,13 @@ body[data-ds-dark-theme] .skillnet-shell :is(input, textarea)::placeholder {
   font-size: var(--sn-type-body);
   line-height: 22px;
 }
-.skillnet-shell :is(.dsh-route-query>input, .dsh-taskbar>.primary-button, .dsh-workbench-tools>summary, .compact-workbench .collection-control select) {
+.skillnet-shell :is(.dsh-route-input>input, .dsh-taskbar>.primary-button, .dsh-workbench-tools>summary, .compact-workbench .collection-control select) {
   box-sizing: border-box;
   height: 44px;
   min-height: 44px;
   line-height: 24px;
 }
-.skillnet-shell .dsh-route-query>input { font-size: 15px; }
+.skillnet-shell .dsh-route-input>input { font-size: 15px; }
 .skillnet-shell .primary-button { font-weight: 600; }
 .skillnet-shell .dsh-nav button { font-weight: 500; }
 .skillnet-shell .dsh-nav button[aria-current=page] { font-weight: 600; }

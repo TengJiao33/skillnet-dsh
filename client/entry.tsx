@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { SkillNetIcon } from './SkillNetIcon'
 import { LibraryWorkbench } from './workbench'
 import type { ModelTarget } from './operations'
@@ -6,73 +6,23 @@ import { CreatePage } from './CreatePage'
 import { preloadWorkspace } from './upstream/src/useWorkspace'
 import { api } from './api'
 import { openRouteDraft, openSkillDraft } from './chatDraft'
-import type { SkillDraft, RouteDraft, AnalysisDraft } from './chatDraft'
-import { Catalog, invalidateInitialCatalog } from './pages'
-import { Select } from './Select'
+import type { SkillDraft, RouteDraft } from './chatDraft'
+import { Catalog } from './pages'
+import { Settings } from './Settings'
 import css from 'skillnet:styles'
 import logo from 'skillnet:logo'
 
 declare const __SKILLNET_BUILD__: string
 
-type SettingField = readonly [key: string, label: string, secret?: true]
-
-function Settings() {
-  const [settings, setSettings] = useState<any>(null)
-  const [values, setValues] = useState<Record<string, string>>({})
-  const [clearSecrets, setClearSecrets] = useState<string[]>([])
-  const [message, setMessage] = useState('')
-  const [busy, setBusy] = useState(false)
-  const groups: readonly (readonly [string, readonly SettingField[]])[] = [
-    ['独立模型 API（高级）', [['base_url', 'OpenAI 兼容接口地址'], ['model', '模型'], ['api_key', 'API 密钥', true]]],
-    ['向量模型（可选）', [['embedding_base_url', '接口地址'], ['embedding_model', '模型'], ['embedding_api_key', 'API 密钥', true]]],
-    ['独立路由 API（高级）', [['explorer_base_url', 'DeepSeek Messages 接口地址'], ['explorer_model', '模型'], ['explorer_api_key', 'API 密钥', true]]],
-    ['GitHub 与目录服务（可选）', [
-      ['github_token', 'GitHub Token', true],
-      ['github_mirror', 'GitHub 下载镜像'],
-      ['skillnet_api_url', 'SkillNet 目录服务地址'],
-    ]],
-  ]
-  async function load() { try { setSettings(await api('settings')) } catch (e: any) { setMessage(e.message) } }
-  useEffect(() => { void load() }, [])
-  async function save(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setBusy(true)
-    setMessage('')
-    try {
-      const submitted = Object.fromEntries(Object.entries(values).filter(([key]) => !clearSecrets.includes(key)))
-      const updated = await api('settings', { values: submitted, clearSecrets })
-      if (updated.fields?.skillnet_api_url?.value !== settings?.fields?.skillnet_api_url?.value) invalidateInitialCatalog()
-      setSettings(updated)
-      setValues({})
-      setClearSecrets([])
-      setMessage('已保存。')
-    } catch (e: any) { setMessage(e.message) }
-    finally { setBusy(false) }
-  }
-  return <main className="dsh-page"><h1>设置</h1><form onSubmit={save}>
-    <div className="dsh-settings-grid">{groups.map(([label, items]) => <section className="dsh-card" key={label}><h2>{label}</h2>{items.map(([key, name, secret]) => {
-      const field = settings?.fields?.[key]
-      const defaultCatalog = key === 'skillnet_api_url' && field?.source === 'default'
-      const placeholder = secret && field?.value ? '已配置，留空保留' : key === 'skillnet_api_url' ? '留空使用默认目录服务' : undefined
-      return <label key={key}>{name}
-        <input type={secret ? 'password' : 'text'} autoComplete="off" disabled={busy || clearSecrets.includes(key)}
-          value={values[key] ?? (secret || defaultCatalog ? '' : field?.value || '')} placeholder={placeholder}
-          onChange={e => setValues(v => ({ ...v, [key]: e.target.value }))} />
-        {key === 'github_mirror' && <small>仅用于匿名读取 GitHub 原始文件失败时的回退。</small>}
-        {secret && field?.value && <span className="dsh-clear"><input type="checkbox" disabled={busy} checked={clearSecrets.includes(key)}
-          onChange={e => setClearSecrets(v => e.target.checked ? [...v, key] : v.filter(x => x !== key))} />清除已保存的密钥</span>}
-      </label>
-    })}</section>)}</div><div className="dsh-row"><label>结构化输出 <Select aria-label="结构化输出" value={values.json_mode ?? settings?.fields.json_mode?.value ?? 'auto'} onValueChange={value => setValues(v => ({ ...v, json_mode: value }))}><option value="auto">自动</option><option value="on">严格 JSON Schema</option><option value="off">关闭协议参数</option></Select></label><button className="primary-button" disabled={busy}>保存设置</button></div><p role="status">{message}</p>
-    {settings && <div className="dsh-checks">{Object.entries(settings.checks.dependencies).map(([name, found]) => <span key={name}>{{ graph: '图谱组件', claude: 'Claude 探索器', codex: 'Codex 探索器', dsh: 'DSH 探索器' }[name as 'graph' | 'claude' | 'codex' | 'dsh'] || name} {found ? '已就绪' : '未安装'}</span>)}</div>}
-  </form></main>
-}
-
 function Panel({ onUseSkill, onRouteDraft }: { onUseSkill: (selection: SkillDraft) => void, onRouteDraft: (selection: RouteDraft) => void }) {
   const [target, setTarget] = useState<ModelTarget>({})
-  const [tab, setTab] = useState('workbench')
+  const [tab, setTab] = useState<'workbench' | 'discover' | 'create' | 'settings'>('workbench')
   const [preview, setPreview] = useState<any>(null)
+  const [visitedCreate, setVisitedCreate] = useState(false)
+  const [visitedSettings, setVisitedSettings] = useState(false)
+  const openCreate = () => { setVisitedCreate(true); setTab('create') }
   useEffect(() => {
-    const openPreview = (event: Event) => { setPreview((event as CustomEvent).detail); setTab('discover') }
+    const openPreview = (event: Event) => { setPreview((event as CustomEvent).detail) }
     const openLibrary = () => { setPreview(null); setTab('workbench') }
     window.addEventListener('skillnet-preview', openPreview)
     window.addEventListener('skillnet-open-library', openLibrary)
@@ -81,11 +31,13 @@ function Panel({ onUseSkill, onRouteDraft }: { onUseSkill: (selection: SkillDraf
       window.removeEventListener('skillnet-open-library', openLibrary)
     }
   }, [])
-  const navigation = <nav className="dsh-nav" aria-label="SkillNet"><button aria-current={tab === 'workbench' ? 'page' : undefined} onClick={() => setTab('workbench')}>我的技能库</button><button aria-current={tab === 'discover' ? 'page' : undefined} onClick={() => setTab('discover')}>发现</button><button aria-current={tab === 'create' ? 'page' : undefined} onClick={() => setTab('create')}>创建</button><button aria-current={tab === 'settings' ? 'page' : undefined} onClick={() => setTab('settings')}>设置</button></nav>
+  const navigation = <nav className="dsh-nav" aria-label="SkillNet"><button aria-current={tab === 'workbench' ? 'page' : undefined} onClick={() => setTab('workbench')}>我的技能库</button><button aria-current={tab === 'discover' ? 'page' : undefined} onClick={() => setTab('discover')}>发现</button><button aria-current={tab === 'create' ? 'page' : undefined} onClick={openCreate}>创建</button><button aria-current={tab === 'settings' ? 'page' : undefined} onClick={() => { setVisitedSettings(true); setTab('settings') }}>设置</button></nav>
   return <div data-skillnet-build={__SKILLNET_BUILD__} className={`skillnet-shell ${tab !== 'workbench' ? 'dsh-other-page' : ''}`}><style>{css}</style>
-    <LibraryWorkbench logo={logo} headerActions={navigation} active={tab === 'workbench'} target={target} onTarget={setTarget} onUseSkill={onUseSkill} onRouteDraft={onRouteDraft} />
-    {tab === 'discover' && <Catalog preview={preview} target={target} clearPreview={() => setPreview(null)} onUseSkill={onUseSkill} />}
-    {tab === 'create' && <CreatePage target={target} onTarget={setTarget} />}{tab === 'settings' && <Settings />}
+    <LibraryWorkbench logo={logo} headerActions={navigation} active={tab === 'workbench'} target={target} onTarget={setTarget} onUseSkill={onUseSkill} onRouteDraft={onRouteDraft}
+      onDiscover={() => setTab('discover')} onCreate={openCreate} />
+    {(tab === 'discover' || preview) && <Catalog previewOnly={tab !== 'discover'} preview={preview} target={target} clearPreview={() => setPreview(null)} onUseSkill={onUseSkill} />}
+    {visitedCreate && <CreatePage key="create" active={tab === 'create'} target={target} onTarget={setTarget} />}
+    {visitedSettings && <Settings key="settings" active={tab === 'settings'} />}
   </div>
 }
 export const inject = ['slots', 'connection', 'sessions', 'conversation', 'uiWorkspace']

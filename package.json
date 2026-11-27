@@ -1,7 +1,6 @@
 {
   "name": "dsh-skillnet",
-  "version": "0.5.0",
-  "private": true,
+  "version": "0.6.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/TengJiao33/skillnet-dsh.git"

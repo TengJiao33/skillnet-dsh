@@ -17,7 +17,7 @@
   padding: 0 var(--sn-space-4) var(--sn-space-4);
 }
 .skillnet-shell .dsh-taskbar { gap: var(--sn-space-2); }
-.skillnet-shell .dsh-route-query>input { padding: var(--sn-space-2) var(--sn-space-3); }
+.skillnet-shell .dsh-route-input>input { padding: var(--sn-space-2) var(--sn-space-3); }
 .skillnet-shell .dsh-taskbar>.primary-button,
 .skillnet-shell .dsh-workbench-tools>summary {
   box-sizing: border-box;

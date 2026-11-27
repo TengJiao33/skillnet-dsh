@@ -11,7 +11,7 @@ const bundle = await build({
   entryPoints: [fileURLToPath(new URL('../client/installationManagement.tsx', import.meta.url))],
   bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'shared-react', setup(b) {
-    b.onResolve({ filter: /^react(\/jsx-runtime)?$/ }, args => ({ path: pathToFileURL(require.resolve(args.path)).href, external: true }));
+    b.onResolve({ filter: /^(react(\/jsx-runtime)?|lucide-react)$/ }, args => ({ path: pathToFileURL(require.resolve(args.path)).href, external: true }));
   } }],
 });
 const { installationAt, installationsFrom, installationLocation, RemoveInstalledSkill, InstallationManagementDialog } =

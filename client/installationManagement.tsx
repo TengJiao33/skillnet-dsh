@@ -1,5 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react'
+import { ArchiveRestore, RefreshCw, Trash2 } from 'lucide-react'
 import { api } from './api'
+import { DialogHeader } from './DialogHeader'
 
 export type Installation = {
   id: string
@@ -98,7 +100,7 @@ export function useInstallationInventory(enabled = true) {
   return { inventory, loading, error }
 }
 
-export function useInstallationManagement(enabled: boolean) {
+export function useInstallationManagement(enabled: boolean, onRemoved: (name: string) => void) {
   const state = useInstallationInventory(enabled)
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [busy, setBusy] = useState(false)
@@ -119,8 +121,12 @@ export function useInstallationManagement(enabled: boolean) {
     setMessage('')
     try {
       await api(action, { id: record.id })
-      setDialog({ kind: 'removed' })
-      setMessage(action === 'remove' ? `已卸载 ${record.name}。` : `已恢复 ${record.name}。`)
+      if (action === 'remove') {
+        setDialog(null)
+        onRemoved(record.name)
+      } else {
+        setMessage(`已恢复 ${record.name}。`)
+      }
       notifyInstallationsChanged(installationConnection(record, state.inventory?.libraries || []))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
@@ -137,7 +143,7 @@ type Management = ReturnType<typeof useInstallationManagement>
 export function RemoveInstalledSkill({ management, filePath }: { management: Management, filePath?: string }) {
   const record = installationAt(management.inventory?.records || [], filePath)
   return record && <button type="button" className="dsh-workbench-action" aria-haspopup="dialog"
-    disabled={management.loading || management.busy} onClick={() => management.open({ kind: 'remove', record })}>卸载</button>
+    data-danger="true" disabled={management.loading || management.busy} onClick={() => management.open({ kind: 'remove', record })}><Trash2 size={16} strokeWidth={1.8} aria-hidden="true" />卸载</button>
 }
 
 type UpdatePreview = {
@@ -216,24 +222,24 @@ export function InstalledSkillUpdate({ record, libraries, onUpdated }: {
   if (!record.url || record.state !== 'installed') return null
   const connection = updated?.connection || installationConnection(record, libraries)
   return <>
-    <button type="button" className="dsh-workbench-action" aria-haspopup="dialog" onClick={() => void check()}>检查更新</button>
+    <button type="button" className="dsh-workbench-action" aria-haspopup="dialog" onClick={() => void check()}><RefreshCw size={15} strokeWidth={1.8} aria-hidden="true" />检查更新</button>
     {visible && <dialog ref={dialog} className="dsh-use-dialog dsh-package-dialog" aria-labelledby={heading} onClose={close}
-      onCancel={event => { event.preventDefault(); close() }}>
-      <header className="dsh-package-dialog-header"><h2 id={heading}>更新 {record.name}</h2><button type="button" disabled={applying} onClick={close}>关闭</button></header>
+      onCancel={event => { if (writing.current) event.preventDefault() }}>
+      <DialogHeader id={heading} title={`更新 ${record.name}`} disabled={applying} onClose={() => dialog.current?.close()} />
       <div className="dsh-package-dialog-body dsh-package">
-        <p className="dsh-path">{preview?.targetPath || record.path}</p>
+        <p className="dsh-path dsh-path-chip" title={preview?.targetPath || record.path}>{preview?.targetPath || record.path}</p>
         {error && <p role="alert">{error}</p>}
         {checking && <p role="status">正在对比当前版本与原仓库…</p>}
         {preview?.status === 'unchanged' && <p role="status">{preview.message || '当前技能包与原仓库一致。'}</p>}
         {preview?.status === 'blocked' && <p role="alert">{preview.message || '当前技能包无法安全更新。'}</p>}
         {preview?.changes?.length ? <>
-          <p>包版本 <code title={preview.currentVersion}>{preview.currentVersion?.slice(0, 12) || '未记录'}</code> → <code title={preview.remoteVersion}>{preview.remoteVersion?.slice(0, 12) || '未记录'}</code></p>
-          <details><summary>文件变化（{preview.changes.length}）</summary><ul>{preview.changes.map(change => <li key={change.path}>{updateKinds[change.kind]} <code>{change.path}</code></li>)}</ul></details>
+          <p className="dsh-update-versions">包版本 <code title={preview.currentVersion}>{preview.currentVersion?.slice(0, 12) || '未记录'}</code> → <code title={preview.remoteVersion}>{preview.remoteVersion?.slice(0, 12) || '未记录'}</code></p>
+          <details><summary>文件变化（{preview.changes.length}）</summary><ul className="dsh-update-changes">{preview.changes.map(change => <li key={change.path}><span data-change={change.kind}>{updateKinds[change.kind]}</span><code>{change.path}</code></li>)}</ul></details>
           {preview.currentSource !== undefined && preview.remoteSource !== undefined && <details><summary>对照技能说明</summary>
             <h3>当前版本</h3><pre>{preview.currentSource}</pre><h3>远端版本</h3><pre>{preview.remoteSource}</pre>
           </details>}
         </> : null}
-        {preview?.status === 'ready' && preview.previewId && <button type="button" className="dsh-workbench-action" disabled={applying} onClick={() => void apply()}>{applying ? '正在更新…' : '备份并确认更新'}</button>}
+        {preview?.status === 'ready' && preview.previewId && <footer className="dsh-row dsh-result-actions"><button type="button" className="primary-button" disabled={applying} onClick={() => void apply()}>{applying ? '正在更新…' : '备份并确认更新'}</button></footer>}
         {!checking && !applying && !preview && !updated && <button type="button" onClick={() => void check()}>重新检查</button>}
         {updated && <>
           <p role="status">技能已更新。{updated.backupPath ? '已备份旧版本。' : ''}</p>
@@ -247,7 +253,7 @@ export function InstalledSkillUpdate({ record, libraries, onUpdated }: {
 
 export function RemovedInstallations({ management, onOpen }: { management: Management, onOpen: () => void }) {
   return <button type="button" aria-haspopup="dialog"
-    onClick={() => { onOpen(); management.open({ kind: 'removed' }) }}>已移除技能</button>
+    onClick={() => { onOpen(); management.open({ kind: 'removed' }) }}><ArchiveRestore size={15} strokeWidth={1.8} aria-hidden="true" />已移除技能</button>
 }
 
 export function InstallationManagementDialog({ management }: { management: Management }) {
@@ -264,30 +270,30 @@ export function InstallationManagementDialog({ management }: { management: Manag
   if (!dialog) return null
 
   const removed = inventory?.records.filter(record => record.state === 'removed') || []
+  const close = () => ref.current?.close()
   return <dialog ref={ref} className="dsh-use-dialog" aria-labelledby={heading}
     onClose={() => open(null)} onCancel={event => { if (busy) event.preventDefault() }}>
     {dialog.kind === 'remove' ? <form onSubmit={event => { event.preventDefault(); void mutate('remove', dialog.record) }}>
-      <h2 id={heading}>卸载 {dialog.record.name}</h2>
-      <p><code>{dialog.record.path}</code></p>
+      <DialogHeader id={heading} title={`卸载 ${dialog.record.name}`} disabled={busy} onClose={close} />
+      <p className="dsh-path dsh-path-chip" title={dialog.record.path}>{dialog.record.path}</p>
       <p>卸载后可在「已移除技能」中恢复。</p>
       {error && <p role="alert">{error}</p>}
       <footer className="dsh-row">
-        <button type="button" autoFocus disabled={busy} onClick={() => open(null)}>取消</button>
-        <button type="submit" disabled={busy}>{busy ? '正在卸载…' : '确认卸载'}</button>
+        <button type="button" autoFocus disabled={busy} onClick={close}>取消</button>
+        <button type="submit" className="dsh-danger-button" disabled={busy}>{busy ? '正在卸载…' : '确认卸载'}</button>
       </footer>
     </form> : <form onSubmit={event => event.preventDefault()}>
-      <h2 id={heading}>已移除技能</h2>
+      <DialogHeader id={heading} title="已移除技能" disabled={busy} onClose={close} />
       {message && <p role="status">{message}</p>}
       {error && <p role="alert">{error}</p>}
       {readError && <p role="alert">{readError}</p>}
-      {loading ? <p role="status">正在读取安装记录…</p> : removed.length === 0 && !readError ? <p>暂无已移除技能。</p> :
-        removed.map(record => <div key={record.id}>
-          <div className="dsh-row"><strong>{record.name}</strong><span>{installationLocation(record, inventory?.libraries || [])}</span>
+      {loading ? <p role="status">正在读取安装记录…</p> : removed.length === 0 && !readError ? <p className="dsh-removed-empty"><ArchiveRestore size={18} aria-hidden="true" />暂无已移除技能。</p> :
+        removed.map(record => <div key={record.id} className="dsh-removed-record">
+          <div className="dsh-row"><strong>{record.name}</strong><span className="dsh-location-badge">{installationLocation(record, inventory?.libraries || [])}</span>
             <button type="button" disabled={busy} onClick={() => void mutate('restore', record)}>恢复</button>
           </div>
-          <p><code>{record.path}</code></p>
+          <p className="dsh-path dsh-path-chip" title={record.path}>{record.path}</p>
         </div>)}
-      <footer className="dsh-row"><button type="button" disabled={busy} onClick={() => open(null)}>关闭</button></footer>
     </form>}
   </dialog>
 }

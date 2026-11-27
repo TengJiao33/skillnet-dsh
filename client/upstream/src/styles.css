@@ -1425,12 +1425,6 @@ main {
   justify-content: space-between;
   gap: 8px;
 }
-.library-menu-panel button.library-menu-close {
-  justify-content: center;
-  width: 30px;
-  min-height: 30px;
-  padding: 0;
-}
 .library-menu-location {
   padding: 8px 10px;
   border-radius: 7px;
@@ -1498,6 +1492,14 @@ main {
 .library-menu-panel :is(button:enabled:not(.sn-select):hover, summary:hover, details[open] > summary) {
   background: #eef7f4;
   color: #087b61;
+}
+.library-menu-panel button.library-menu-close {
+  flex: none;
+  justify-content: center;
+  width: 30px;
+  min-height: 30px;
+  height: 30px;
+  padding: 0;
 }
 .library-menu-panel button:disabled:not(.sn-select) {
   opacity: .55;

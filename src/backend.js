@@ -5,6 +5,7 @@ import { createInterface } from 'node:readline';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const protocolLimit = 24 * 1024 * 1024;
+const localActions = new Set(['local-library', 'settings', 'check', 'analysis-plan']);
 const sendLine = (handle, value) => new Promise((resolve, reject) => {
   handle.stdin.write(JSON.stringify(value) + '\n', 'utf8', error => error ? reject(error) : resolve());
 });
@@ -15,7 +16,7 @@ export function pythonExecutable(config = {}) {
 }
 
 // Every read still scans the current files and index.
-function createLibraryReader(subprocess, config) {
+function createLocalService(subprocess, config) {
   let worker, queue = Promise.resolve(), disposed = false;
   async function launch(signal) {
     const executable = await subprocess.resolveExecutable(pythonExecutable(config));
@@ -23,7 +24,7 @@ function createLibraryReader(subprocess, config) {
     if (disposed) throw new Error('SkillNet 插件已停止。');
     const abort = new AbortController();
     const handle = subprocess.spawn({
-      argv: [executable, join(root, 'python/worker.py'), '--library-reader'], cwd: root,
+      argv: [executable, join(root, 'python/worker.py'), '--local-service'], cwd: root,
       stdio: { stdin: 'pipe', stdout: 'pipe', stderr: { maxBytes: 16 * 1024 } },
       env: { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' }, graceMs: 500, signal: abort.signal,
     });
@@ -69,12 +70,11 @@ function createLibraryReader(subprocess, config) {
           };
           signal.addEventListener('abort', cancel, { once: true });
           if (signal.aborted) { cancel(); return; }
-          const input = { action: 'local-library', sourcePath: request.sourcePath, indexPath: request.indexPath };
-          state.handle.stdin.write(JSON.stringify(input) + '\n', 'utf8', error => { if (error) void state.stop(error); });
+          void sendLine(state.handle, request).catch(error => { void state.stop(error); });
         });
       } catch (error) { await state.stop(error); throw error; }
       signal.throwIfAborted();
-      if (!value?.ok) throw new Error(value?.error?.message || '无法读取技能库。');
+      if (!value?.ok) throw new Error(value?.error?.message || 'SkillNet 本地操作失败。');
       return value.data;
     });
     queue = next.catch(() => {});
@@ -196,7 +196,9 @@ function createRouteWorker(subprocess, config) {
 }
 
 export function createBackend(subprocess, config = {}) {
-  const reader = createLibraryReader(subprocess, config);
+  const local = createLocalService(subprocess, config);
+  // Office parsing can be slow. Keep it off the queue for settings and libraries.
+  const documents = createLocalService(subprocess, config);
   const routes = createRouteWorker(subprocess, config);
   const routeAbort = new AbortController();
   const activeRoutes = new Set();
@@ -216,7 +218,8 @@ export function createBackend(subprocess, config = {}) {
     const signal = AbortSignal.any(signals);
     if (bridged && !invokeHost) throw new Error('DSH 模型通道尚未连接。');
     signal.throwIfAborted();
-    if (request.action === 'local-library') return reader.read(request, signal);
+    if (localActions.has(request.action)) return local.read(request, signal);
+    if (request.action === 'document-preview') return documents.read(request, signal);
     if (request.action === 'route' && bridged) {
       const warm = routes.tryRoute(request, signal, rpcAbort, invokeHost);
       if (warm) return warm;
@@ -315,7 +318,7 @@ export function createBackend(subprocess, config = {}) {
   run.dispose = async () => {
     const reason = new Error('SkillNet 插件已停止。');
     routeAbort.abort(reason);
-    await Promise.all([reader.dispose(), routes.dispose(reason), Promise.allSettled(activeRoutes)]);
+    await Promise.all([local.dispose(), documents.dispose(), routes.dispose(reason), Promise.allSettled(activeRoutes)]);
   };
   return run;
 }

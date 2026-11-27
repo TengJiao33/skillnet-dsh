@@ -83,7 +83,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
     await rename(temporary, path);
   };
   async function configured(request, signal, invokeHost, onProgress) {
-    if (request.action === 'local-library') return run(request, signal);
+    if (request.action === 'local-library' || request.action === 'check') return run(request, signal);
     if (request.action === 'discover') {
       const { skillnet_api_url } = await read('settings.json', {});
       return run({ ...request, _settings: { skillnet_api_url } }, signal);
@@ -119,8 +119,8 @@ export function createWorkspace(ctx, run, library, hostModel) {
         if (value.length > 4096) throw new Error('配置值过长。');
         if (fields.includes(key)) {
           if ((key.endsWith('base_url') || key.endsWith('api_url') || key === 'github_mirror') && value) {
-            const url = new URL(value);
-            if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('请填写不含凭据和查询参数的 HTTP(S) 地址。');
+            const url = URL.parse(value.trim());
+            if (!url || !['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('请填写不含凭据和查询参数的 HTTP(S) 地址。');
           }
           if (key === 'json_mode' && !['auto', 'on', 'off', ''].includes(value)) throw new Error('JSON 模式无效。');
           if (value.trim()) values[key] = value.trim(); else delete values[key];
@@ -533,6 +533,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
         }
       }
       execution.signal?.throwIfAborted();
+      const initialized = Promise.withResolvers();
       const id = ctx.jobs.start({ kind: `skillnet-${action}`, label: `SkillNet ${actionNames[action]}${item ? ` / ${item.name}` : ''}`, owner: execution.agent?.id, outputLimitBytes: 24 * 1024,
         run(job) {
           const controller = new AbortController();
@@ -545,6 +546,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
           const done = (async () => {
             try {
               await taskStore.write(record);
+              initialized.resolve();
               const artifacts = join(root, 'artifacts', job.id);
               await mkdir(artifacts, { recursive: true });
               if (action === 'create') request.output_dir = join(artifacts, 'drafts');
@@ -560,6 +562,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
                 : await configured(request, controller.signal, runModel, action === 'analyze' ? message => job.updateProgress(message) : undefined);
               record.status = 'completed';
             } catch (error) {
+              initialized.reject(error);
               record.status = controller.signal.aborted ? 'killed' : 'failed';
               record.error = controller.signal.aborted ? '作业已取消。' : error.name === 'TimeoutError' && error.message === 'The operation was aborted due to timeout' ? `${actionNames[action]}执行超时，已完成的缓存与已有图谱保留。` : error.message;
             } finally {
@@ -579,6 +582,7 @@ export function createWorkspace(ctx, run, library, hostModel) {
           return { done, cancel: () => controller.abort() };
         },
       });
+      await initialized.promise;
       return { id, action, status: 'running' };
     } catch (error) { if (lock) locks.delete(lock); throw error; }
   }

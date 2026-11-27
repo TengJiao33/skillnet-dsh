@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 import { createBackend } from '../src/backend.js';
 import { apply } from '../src/index.js';
+import { previewDocument } from '../src/document-preview.js';
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'skillnet-reader-'));
@@ -17,6 +18,7 @@ async function fixture(t) {
     spawn(spec) {
       const env = { ...process.env, ...spec.env, SKILLNET_CONFIG: join(root, 'no-user-config.json') };
       delete env.EMBEDDING_API_KEY;
+      delete env.GITHUB_TOKEN;
       const child = spawn(spec.argv[0], spec.argv.slice(1), {
         cwd: spec.cwd, env,
         stdio: ['pipe', 'pipe', 'pipe'], signal: spec.signal,
@@ -68,6 +70,36 @@ test('warm SDK reader reopens libraries and observes edits, added skills and rem
   await unlink(join(f.sourcePath, 'reader-first', 'SKILL.md'));
   assert.deepEqual((await f.read()).source.skills.map(skill => skill.name), ['reader-added']);
   assert.equal(f.children.length, 1);
+});
+
+test('local settings and package checks reuse the reader without retaining credentials or previous field values', async t => {
+  const f = await fixture(t);
+  await f.read();
+  const settings = _settings => f.backend({ action: 'settings', _settings });
+  const first = await settings({ github_token: 'fixture-only-value', model: 'first-local-model' });
+  assert.equal(first.fields.github_token.value, true);
+  assert.equal(first.fields.model.value, 'first-local-model');
+  assert.ok(!JSON.stringify(first).includes('fixture-only-value'));
+  const checked = await f.backend({ action: 'check', path: join(f.sourcePath, 'reader-first') });
+  assert.equal(checked.name, 'reader-first');
+  assert.deepEqual(checked.files, ['SKILL.md']);
+  await assert.rejects(settings({ base_url: 'invalid' }));
+  const second = await settings({ model: 'second-local-model' });
+  assert.equal(second.fields.github_token.value, false);
+  assert.equal(second.fields.model.value, 'second-local-model');
+  assert.equal(f.children.length, 1);
+});
+
+test('Node text preview validates uploads and counts Unicode characters across the clipping boundary', () => {
+  const base64 = value => Buffer.from(value).toString('base64');
+  const backend = () => assert.fail('Text preview should not start Python');
+  assert.deepEqual(previewDocument({ name: 'chart.MD', data: base64('\uFEFF  中文\n') }, backend), { content: '中文', truncated: false });
+  const capped = '𠮷'.repeat(50_000);
+  assert.deepEqual(previewDocument({ name: 'chart.txt', data: base64(capped) }, backend), { content: capped, truncated: false });
+  assert.deepEqual(previewDocument({ name: 'chart.txt', data: base64(capped + 'a') }, backend), { content: capped, truncated: true });
+  assert.throws(() => previewDocument({ name: 'chart.txt', data: '!!!!' }, backend), /无法读取/);
+  assert.throws(() => previewDocument({ name: 'chart.txt', data: base64([0xff]) }, backend), /UTF-8/);
+  assert.throws(() => previewDocument({ name: 'chart.txt', data: base64('abc\0') }, backend), /二进制/);
 });
 
 test('plugin startup warms the SDK before opening its panel and reuses that reader for the first request', async t => {

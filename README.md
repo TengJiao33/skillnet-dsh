@@ -4,9 +4,9 @@
 
 中文界面沿用 SkillNet 三栏技能库与关系网图，跟随 DSH 明暗主题。默认使用 DSH 当前或选定模型。建图和检索基于 SkillNet SDK。
 
-当前源码适配 **DSH 0.2.2-rc.1** 和 **0.2.2-rc.5**，后端固定 **skillnet-ai==0.1.5**。已发布的 **v0.5.0** 安装包适配 **DSH 0.2.2-rc.1**。
+**v0.6.0** 发布包在 **DSH 0.2.2-rc.5** 验收，后端固定 **skillnet-ai==0.1.5**。使用早期 DSH 版本的用户可在 Releases 中查看对应用途与兼容性。
 
-[快速安装](#安装) / [第一次使用](#使用) / [常见问题](#常见问题) / [下载发布包](https://github.com/TengJiao33/skillnet-dsh/releases/tag/v0.5.0)
+[快速安装](#安装) / [第一次使用](#使用) / [常见问题](#常见问题) / [下载发布包](https://github.com/TengJiao33/skillnet-dsh/releases/tag/v0.6.0)
 
 ![我的技能库：三栏浏览、关系网图与源码证据](docs/screenshots/library.png)
 
@@ -22,20 +22,20 @@
 | 使用技能 | 选择目标 DSH 对话，在原草稿后追加原生技能引用，不自动发送 |
 | 对话内路由 | 在普通聊天里按库名、自动选库或跨库匹配。可以只看推荐，也可以加载技能并继续执行 |
 | 建图 / 更新图谱 | 检查变化后启动可取消的后台作业，使用 DSH 模型提取画像并复核关系 |
-| 创建技能 | 从需求、DSH 对话、任务记录或 GitHub 仓库生成草稿，预览后确认安装 |
-| 质量评估 | 确认后完成官方五维评估，最近一次成功结果常驻对应技能详情 |
+| 创建技能 | 从需求、DSH 对话、任务记录、文档或 GitHub 仓库生成草稿，预览后确认安装 |
+| 质量评估 | 可评估单个技能或批量评估当前库，五维报告显示在对应技能详情 |
 
 建图和路由支持无向量配置运行。建图的自动模式在向量配置完整时使用原 SDK，路由的自动模式在向量索引匹配且最新时使用原 SDK。显式向量模式失败时会显示错误。
 
 ## 安装
 
-安装 **v0.5.0** 可直接使用发布包，包中已包含前端构建产物。要使用当前源码中的工作台、安装管理和对话路由功能，或使用 **DSH 0.2.2-rc.5**，请按下方的「从源码安装 / 开发」操作。
+下载安装包后，准备 Python 环境，再把解压后的插件目录添加到 DSH。发布包包含已构建的前端，可直接安装。
 
 ### 1. 准备 DSH 和 Python
 
 | 依赖 | 要求 |
 | --- | --- |
-| DSH | **0.2.2-rc.1**、**0.2.2-rc.5** |
+| DSH | 推荐使用本次验收的 **0.2.2-rc.5** |
 | Python | **3.10+**，建议使用已验证的 **3.12**；[官方下载](https://www.python.org/downloads/) |
 | Node.js | 用 `npx` 启动 DSH 或从源码构建时需要 **22.19+**；[官方下载](https://nodejs.org/en/download) |
 | Git | 仅“从源码安装”需要 |
@@ -43,7 +43,7 @@
 已有 DSH 桌面版可直接使用。没有桌面版时，可以按 [DSH 官方运行说明](https://github.com/deepseek-ai/deepseek-harness#run)，用下面的固定版本启动 Web 界面：
 
 ```sh
-npx @deepseek-ai/dsh@0.2.2-rc.1 web
+npx @deepseek-ai/dsh@0.2.2-rc.5 web
 ```
 
 首次进入 DSH，按宿主引导登录 DeepSeek 或配置自己的模型 API Key。SkillNet 默认复用 DSH 的模型，不需要再配置另一套分析模型密钥；插件的技能浏览和下载本身不调用模型。
@@ -53,12 +53,12 @@ npx @deepseek-ai/dsh@0.2.2-rc.1 web
 **Windows / PowerShell**：确认 `python --version` 能显示 Python 3.10 或以上，然后复制执行：
 
 ```powershell
-$installRoot = Join-Path $HOME "tools\skillnet-dsh-0.5.0"
+$installRoot = Join-Path $HOME "tools\skillnet-dsh-0.6.0"
 New-Item -ItemType Directory -Force $installRoot | Out-Null
 Set-Location $installRoot
 
-Invoke-WebRequest -Uri "https://github.com/TengJiao33/skillnet-dsh/releases/download/v0.5.0/dsh-skillnet-0.5.0.tgz" -OutFile "dsh-skillnet-0.5.0.tgz"
-tar -xzf .\dsh-skillnet-0.5.0.tgz
+Invoke-WebRequest -Uri "https://github.com/TengJiao33/skillnet-dsh/releases/download/v0.6.0/dsh-skillnet-0.6.0.tgz" -OutFile "dsh-skillnet-0.6.0.tgz"
+tar -xzf .\dsh-skillnet-0.6.0.tgz
 Set-Location .\package
 
 python -m venv .venv
@@ -71,7 +71,7 @@ python -m venv .venv
 版本检查应输出 **`0.1.5`**。最后一行会打印插件目录的绝对路径，下一步要粘贴这个路径，例如：
 
 ```text
-C:\Users\你的用户名\tools\skillnet-dsh-0.5.0\package
+C:\Users\你的用户名\tools\skillnet-dsh-0.6.0\package
 ```
 
 无需激活虚拟环境：上述命令直接使用 `.venv` 中的 Python。首次安装 Python 依赖可能需要一些时间，等待 `pip install` 成功结束后再添加插件。
@@ -80,10 +80,10 @@ C:\Users\你的用户名\tools\skillnet-dsh-0.5.0\package
 <summary>macOS / Linux 对应命令</summary>
 
 ```bash
-mkdir -p "$HOME/tools/skillnet-dsh-0.5.0"
-cd "$HOME/tools/skillnet-dsh-0.5.0"
-curl -fL "https://github.com/TengJiao33/skillnet-dsh/releases/download/v0.5.0/dsh-skillnet-0.5.0.tgz" -o dsh-skillnet-0.5.0.tgz
-tar -xzf dsh-skillnet-0.5.0.tgz
+mkdir -p "$HOME/tools/skillnet-dsh-0.6.0"
+cd "$HOME/tools/skillnet-dsh-0.6.0"
+curl -fL "https://github.com/TengJiao33/skillnet-dsh/releases/download/v0.6.0/dsh-skillnet-0.6.0.tgz" -o dsh-skillnet-0.6.0.tgz
+tar -xzf dsh-skillnet-0.6.0.tgz
 cd package
 
 python3 -m venv .venv

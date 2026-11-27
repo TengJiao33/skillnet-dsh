@@ -9,6 +9,7 @@ import { hasCustomAnalysisDirectory, useWorkspace } from './useWorkspace'
 import { GraphView } from './GraphView'
 import { firstConnectedSkill } from './selection'
 import { Select } from '../../Select'
+import { DialogHeader } from '../../DialogHeader'
 import './styles.css'
 
 function compactNumber(value: number) {
@@ -16,23 +17,27 @@ function compactNumber(value: number) {
 }
 
 function NewLibraryDialog({ loading, error, onCreate, onClose }: {
-  loading: boolean, error: string | null, onCreate: (name: string) => void, onClose: () => void
+  loading: boolean, error: string | null, onCreate: (name: string) => Promise<boolean>, onClose: () => void
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
+  const input = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
-  useEffect(() => { dialog.current?.showModal() }, [])
+  useEffect(() => { dialog.current?.showModal(); input.current?.focus() }, [])
   return <dialog ref={dialog} className="dsh-use-dialog dsh-new-library-dialog" aria-labelledby="skillnet-new-library-heading"
     onClose={onClose} onCancel={event => { if (loading) event.preventDefault() }}>
-    <form onSubmit={event => { event.preventDefault(); if (!loading && name.trim()) onCreate(name) }}>
-      <h2 id="skillnet-new-library-heading">新建技能库</h2>
+    <form onSubmit={async event => {
+      event.preventDefault()
+      if (!loading && name.trim() && await onCreate(name)) dialog.current?.close()
+    }}>
+      <DialogHeader id="skillnet-new-library-heading" title="新建技能库" disabled={loading} onClose={() => dialog.current?.close()} />
       <label className="dsh-destination">
         <span>技能库名称</span>
-        <input autoFocus required maxLength={60} value={name} disabled={loading} onChange={event => setName(event.target.value)} placeholder="例如：论文工具" />
+        <input ref={input} required maxLength={60} value={name} disabled={loading} onChange={event => setName(event.target.value)} placeholder="例如：论文工具" />
       </label>
       {error && <p role="alert">{error}</p>}
       <footer className="dsh-row">
         <button type="button" disabled={loading} onClick={() => dialog.current?.close()}>取消</button>
-        <button type="submit" className="dsh-new-library-submit" disabled={loading || !name.trim()}>{loading ? '正在创建…' : '创建'}</button>
+        <button type="submit" className="primary-button" disabled={loading || !name.trim()}>{loading ? '正在创建…' : '创建'}</button>
       </footer>
     </form>
   </dialog>
@@ -48,12 +53,13 @@ export interface WorkbenchContext {
   refresh: () => void
 }
 
-export default function App({ logoUrl = '/skillnet.png', headerActions, renderActions, renderOptions, renderLibraryManagement, renderGraphActions, renderGraphResult, renderSkillActions, renderSkillResult, compactControls = false }: {
+export default function App({ logoUrl = '/skillnet.png', headerActions, renderActions, renderOptions, renderLibraryManagement, renderGraphActions, renderGraphResult, renderSkillActions, renderSkillResult, emptyLibraryActions, compactControls = false }: {
   logoUrl?: string
   headerActions?: ReactNode
   renderActions?: (context: WorkbenchContext) => ReactNode
   renderOptions?: (context: WorkbenchContext) => ReactNode
   renderLibraryManagement?: (closeMenu: () => void, context: WorkbenchContext) => ReactNode
+  emptyLibraryActions?: ReactNode
   renderGraphActions?: (context: WorkbenchContext) => ReactNode
   renderGraphResult?: (context: WorkbenchContext) => ReactNode
   renderSkillActions?: (context: WorkbenchContext) => ReactNode
@@ -311,7 +317,7 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
               <div className="library-menu-panel">
                 <div className="library-menu-heading">
                   <strong>目录管理</strong>
-                  <button type="button" className="library-menu-close" aria-label="关闭目录管理" onClick={closeLibraryMenu}><X size={16} aria-hidden="true" /></button>
+                  <button type="button" className="library-menu-close" aria-label="关闭目录管理" title="关闭目录管理" onClick={closeLibraryMenu}><X size={16} strokeWidth={1.8} aria-hidden="true" /></button>
                 </div>
                 {currentLibrary && (
                   <div className="library-menu-location">
@@ -471,12 +477,7 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
             ))}
           </details>
         )}
-        {newLibrary && <NewLibraryDialog loading={loading} error={error} onClose={() => { setNewLibrary(false); setError(null) }} onCreate={async name => {
-          if (await createLibrary(name)) {
-            setNewLibrary(false)
-            if (libraryMenu.current) libraryMenu.current.open = false
-          }
-        }} />}
+        {newLibrary && <NewLibraryDialog loading={loading} error={error} onClose={() => { setNewLibrary(false); setError(null); closeLibraryMenu() }} onCreate={createLibrary} />}
         {error && !newLibrary && (
           <div className="error-banner" role="alert">
             <CircleHelp size={18} /> {error}
@@ -507,9 +508,10 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
                 <code>{currentLibrary?.sourcePath}</code>
               </div>
               <div className="onboarding-next">
+                {emptyLibraryActions}
                 <button
                   type="button"
-                  className="primary-button"
+                  className={emptyLibraryActions ? 'dsh-workbench-action' : 'primary-button'}
                   onClick={() => {
                     if (currentLibrary) void openLocalLibrary(currentLibrary)
                   }}
@@ -540,7 +542,7 @@ export default function App({ logoUrl = '/skillnet.png', headerActions, renderAc
                     type="search"
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="搜索名称、能力或标识"
+                    placeholder="搜索名称或能力"
                     aria-label="搜索技能"
                   />
                   {query && (

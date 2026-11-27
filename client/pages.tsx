@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ChevronDown, FolderGit2, Info, ListChecks, SlidersHorizontal, Star } from 'lucide-react'
+import { ChevronDown, FolderGit2, Info, ListChecks, Search, SlidersHorizontal, Star } from 'lucide-react'
+import { DialogHeader } from './DialogHeader'
 import { api } from './api'
 import { Select } from './Select'
 import type { SkillDraft, SkillDraftTarget } from './chatDraft'
@@ -65,12 +66,12 @@ function PackageDialog({ name, pending, onClose, children }: { name: string, pen
     return () => { if (element?.open) element.close() }
   }, [])
   return <dialog ref={dialog} className="dsh-use-dialog dsh-package-dialog" aria-labelledby="dsh-package-heading" onClose={onClose} onCancel={event => { if (pending) event.preventDefault() }}>
-    <header className="dsh-package-dialog-header"><h2 id="dsh-package-heading">{name}</h2><button type="button" autoFocus disabled={pending} onClick={onClose}>关闭</button></header>
+    <DialogHeader id="dsh-package-heading" title={name} disabled={pending} onClose={() => dialog.current?.close()} />
     <div className="dsh-package-dialog-body">{children}</div>
   </dialog>
 }
 
-export function Catalog({ preview, target, clearPreview, onUseSkill }: { preview: any, target: { sessionId?: string }, clearPreview: () => void, onUseSkill: (selection: SkillDraft) => void }) {
+export function Catalog({ preview, target, clearPreview, onUseSkill, previewOnly = false }: { preview: any, target: { sessionId?: string }, clearPreview: () => void, onUseSkill: (selection: SkillDraft) => void, previewOnly?: boolean }) {
   const [query, setQuery] = useState('')
   const [searchMode, setSearchMode] = useState('auto')
   const [category, setCategory] = useState('')
@@ -81,7 +82,7 @@ export function Catalog({ preview, target, clearPreview, onUseSkill }: { preview
   const [result, setResult] = useState<any>(() => Date.now() < initialCatalogExpiresAt ? initialCatalog : null)
   const [browseBusy, setBrowseBusy] = useState(false)
   const [browseError, setBrowseError] = useState('')
-  const { inventory, error: inventoryError } = useInstallationInventory()
+  const { inventory, error: inventoryError } = useInstallationInventory(!previewOnly)
   const [detail, setDetail] = useState<any>(preview)
   const [packageCopies, setPackageCopies] = useState<Installation[]>([])
   const [packageOpen, setPackageOpen] = useState(Boolean(preview))
@@ -97,13 +98,14 @@ export function Catalog({ preview, target, clearPreview, onUseSkill }: { preview
   const [installTarget, setInstallTarget] = useState('')
   const searchController = useRef<AbortController | null>(null)
   const packageController = useRef<AbortController | null>(null)
+  const acting = useRef(false)
   const resultVersion = useRef(0)
   useEffect(() => () => searchController.current?.abort(), [])
   useEffect(() => () => { packageController.current?.abort(); packageController.current = null }, [])
   useEffect(() => {
-    if (!result) void browse()
+    if (!previewOnly && !result) void browse()
     return () => { resultVersion.current++ }
-  }, [])
+  }, [previewOnly])
   useEffect(() => {
     if (preview) {
       packageController.current?.abort(); packageController.current = null
@@ -127,7 +129,13 @@ export function Catalog({ preview, target, clearPreview, onUseSkill }: { preview
     })
     return () => controller.abort()
   }, [previewId, forConversation])
-  async function act(work: () => Promise<void>) { if (busy) return; setBusy(true); setError(''); setNotice(''); try { await work() } catch (e: any) { setError(e.message) } finally { setBusy(false) } }
+  async function act(work: () => Promise<void>) {
+    if (acting.current) return
+    acting.current = true
+    setBusy(true); setError(''); setNotice('')
+    try { await work() } catch (error: any) { setError(error.message) }
+    finally { acting.current = false; setBusy(false) }
+  }
   async function browse(page = 1) {
     const version = ++resultVersion.current
     setBrowseBusy(true); setBrowseError('')
@@ -152,7 +160,7 @@ export function Catalog({ preview, target, clearPreview, onUseSkill }: { preview
     } else void search(page)
   }
   async function openPackage(name: string, load: (signal: AbortSignal) => Promise<any>, action: 'view' | 'download' = 'view') {
-    if (busy || packageController.current) return
+    if (acting.current || packageController.current) return
     const controller = new AbortController()
     packageController.current = controller
     setPackageName(name); setPackageAction(action); setPackageOpen(true); setPackageLoading(true); setPackageError(''); setDetail(null); setFile(null); setPackageCopies([])
@@ -172,6 +180,7 @@ export function Catalog({ preview, target, clearPreview, onUseSkill }: { preview
     return openPackage(record.name, signal => api('installed', { id: record.id }, signal))
   }
   function inspect(skill: any, copies: Installation[], action: 'view' | 'download' = 'view') {
+    if (acting.current || packageController.current) return
     if (action === 'view' && copies.length === 1) return viewInstalled(copies[0])
     if (action === 'view' && copies.length > 1) {
       setDetail(null); setPackageName(skill.skill_name); setPackageError(''); setFile(null)
@@ -220,9 +229,10 @@ export function Catalog({ preview, target, clearPreview, onUseSkill }: { preview
     <p role="status">{detail.record.reused ? '已复用个人技能库中的同源技能。' : '已安装到个人技能库。'}</p>
     <p>添加技能后会打开对话草稿。检查内容后发送，即可继续任务。</p>
     <button type="button" className="primary-button" disabled={busy} onClick={() => void addToConversation()}>添加到对话草稿</button>
-  </div> : !savedToManaged && <p>{native(detail.native)}</p>)
-  return <main className="dsh-page dsh-discover-page"><h1>发现下一项能力</h1>
-    <form className="dsh-search" onSubmit={e => { e.preventDefault(); void search() }}><input aria-label="搜索技能" placeholder="搜索技能或描述任务" required value={query} onChange={e => setQuery(e.target.value)} /><button className="primary-button" disabled={busy}>搜索</button>{busy && searchController.current && <button type="button" onClick={() => searchController.current?.abort()}>取消检索</button>}
+  </div> : !savedToManaged && <p><span className="dsh-native-status" data-state={detail.native?.effective && (detail.native.modelInvocable || detail.native.userInvocable) ? 'ready' : detail.native?.available ? 'restricted' : 'missing'}>{native(detail.native)}</span></p>)
+  return <>
+    {!previewOnly && <main className="dsh-page dsh-discover-page"><h1>发现下一项能力</h1>
+    <form className="dsh-search" onSubmit={e => { e.preventDefault(); void search() }}><label className="dsh-search-input"><Search size={16} aria-hidden="true" /><input aria-label="搜索技能" placeholder="搜索技能或描述任务" required value={query} onChange={e => setQuery(e.target.value)} /></label><button className="primary-button" disabled={busy}>搜索</button>{busy && searchController.current && <button type="button" onClick={() => searchController.current?.abort()}>取消检索</button>}
       <details className="dsh-search-options">
         <summary><SlidersHorizontal size={14} aria-hidden="true" /><span>筛选</span><ChevronDown size={14} aria-hidden="true" /></summary>
         <div className="dsh-filters">
@@ -249,7 +259,7 @@ export function Catalog({ preview, target, clearPreview, onUseSkill }: { preview
         <header className="dsh-catalog-card-heading"><h2>{skill.skill_name}</h2></header>
         <p className="dsh-catalog-description">{skill.skill_description}</p>
         <div className="dsh-catalog-meta">{repository ? <a className="dsh-catalog-repository" href={repository} target="_blank" rel="noreferrer" title={skill.repo_name}>{source}</a> : <span className="dsh-catalog-repository" title={skill.repo_name}>{source}</span>}<span className="dsh-catalog-stars" title="来源仓库星标"><Star size={15} fill="currentColor" strokeWidth={1.6} aria-hidden="true" />{skill.stars}</span></div>
-        {copies.length > 0 && <div className="dsh-evaluation"><span>已安装于</span>
+        {copies.length > 0 && <div className="dsh-evaluation dsh-installed-locations"><span>已安装于</span>
           {copies.map(record => <span key={record.id} title={record.path}>{installationLocation(record, inventory?.libraries || [])}</span>)}
         </div>}
         <footer className="dsh-catalog-footer">
@@ -258,13 +268,14 @@ export function Catalog({ preview, target, clearPreview, onUseSkill }: { preview
             <p className="dsh-catalog-assessment-source">来自 SkillNet 目录</p>
             <div className="dsh-evaluation">{Object.entries(skill.evaluation).filter(([key]) => evaluationNames[key]).map(([key, value]) => <span key={key}>{evaluationNames[key]} {evaluationText(value)}</span>)}</div>
           </details>}
-          <div className="dsh-catalog-actions"><button type="button" disabled={busy} onClick={() => void inspect(skill, copies)}>{copies.length ? '查看已安装' : '查看'}</button><button type="button" className="dsh-catalog-download" disabled={busy} onClick={() => void inspect(skill, copies, 'download')}>{copies.length ? '安装' : '下载'}</button></div>
+          <div className="dsh-catalog-actions"><button type="button" aria-disabled={busy} onClick={() => void inspect(skill, copies)}>{copies.length ? '查看已安装' : '查看'}</button><button type="button" className="dsh-catalog-download" aria-disabled={busy} onClick={() => void inspect(skill, copies, 'download')}>{copies.length ? '安装' : '下载'}</button></div>
         </footer>
       </article>})}</div>
     </>}
     {!packageOpen && <>{busy && <p role="status">正在处理…</p>}{error && <p className="error-banner" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}</>}
     {inventoryError && <p className="error-banner" role="alert">读取安装记录失败。{inventoryError}</p>}
     {inventory?.warnings.map(warning => <p key={warning} role="status">{warning}</p>)}
+    </main>}
     {packageOpen && <PackageDialog name={detail?.name || packageName} pending={busy && !packageLoading} onClose={closePackage}>
       {packageLoading && <p role="status">正在读取技能包…</p>}
       {packageError && <p className="error-banner" role="alert">{packageError}</p>}
@@ -275,17 +286,23 @@ export function Catalog({ preview, target, clearPreview, onUseSkill }: { preview
           <span className="dsh-path">{record.path}</span>
         </div>)}
       </section>}
-    {detail && <section className="dsh-package" aria-label="技能包内容">{detail.url && <a href={detail.url} target="_blank" rel="noreferrer">原仓库 ↗</a>}
+    {detail && <section className="dsh-package" aria-label="技能包内容">
+      {(detail.url || detail.record?.url) && <div className="dsh-package-meta-bar">
+        {detail.url && <a href={detail.url} target="_blank" rel="noreferrer">原仓库 ↗</a>}
+        {detail.record?.url && <InstalledSkillUpdate key={detail.record.id} record={detail.record} libraries={inventory?.libraries || []}
+          onUpdated={async record => { setDetail(await api('installed', { id: record.id })); setFile(null) }} />}
+      </div>}
       {conversation && <p>来源技能库「{conversation.libraryName}」 · 目标对话「{conversation.sessionTitle}」</p>}
       {packageAction === 'download' && installation}
       {detail.graphUpdate && <GraphUpdateLink {...detail.graphUpdate} onOpen={closePackage} />}
-      {detail.record?.url && <InstalledSkillUpdate key={detail.record.id} record={detail.record} libraries={inventory?.libraries || []}
-        onUpdated={async record => { setDetail(await api('installed', { id: record.id })); setFile(null) }} />}
       {[...detail.validation.errors, ...detail.validation.warnings].map((message: string, i: number) => <p role="status" key={i}>{message}</p>)}
-      <pre>{detail.source}</pre><details><summary>技能包文件</summary>{detail.files.map((name: string) => <button key={name} disabled={busy} onClick={() => void act(async () => { setFile(await api('file', { previewId: detail.previewId, id: detail.installationId, file: name })) })}>{name}</button>)}{file && <><h3>{file.file}</h3><pre>{file.binary ? '二进制文件' : file.text}</pre>{file.truncated && <p>仅显示前 256 KiB。</p>}</>}</details>
+      <pre>{detail.source}</pre><details><summary>技能包文件</summary>
+        <div className="dsh-package-files"><div className="dsh-file-list" role="group" aria-label="选择文件">{detail.files.map((name: string) => <button type="button" key={name} aria-pressed={file?.file === name} disabled={busy} onClick={() => void act(async () => { setFile(await api('file', { previewId: detail.previewId, id: detail.installationId, file: name })) })}>{name}</button>)}</div>
+        {file && <div><h3>{file.file}</h3><pre>{file.binary ? '二进制文件' : file.text}</pre>{file.truncated && <p>仅显示前 256 KiB。</p>}</div>}</div>
+      </details>
       {detail.catalog?.evaluation && <details><summary>目录已有评估</summary>{Object.entries(detail.catalog.evaluation).filter(([key]) => evaluationNames[key]).map(([key, value]: [string, any]) => <section key={key}><h3>{evaluationNames[key]} {evaluationText(value)}</h3><p>{value.reason}</p></section>)}</details>}
       {packageAction === 'view' && installation}
     </section>}
     </PackageDialog>}
-  </main>
+  </>
 }

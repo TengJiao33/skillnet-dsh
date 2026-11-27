@@ -1,7 +1,7 @@
-import { cp, lstat, mkdir, readFile, readdir, realpath, rename, rm, rmdir, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, open, readFile, readdir, realpath, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
 
@@ -429,7 +429,34 @@ export function createLibrary(run, skills, config = {}) {
     const record = args.previewId ? await load('previews', args.previewId) : await installation(args.id);
     if (!args.previewId && record.state !== 'installed') throw new Error('技能已移除，请先恢复。');
     const path = args.previewId ? join(data, 'staging', record.id, record.name) : await recordPath(record);
-    return run({ action: 'file', path, file: args.file }, signal);
+    const invalid = () => new Error('请选择技能包内的文件。');
+    if (typeof args.file !== 'string' || !args.file || args.file.includes('\0')) throw invalid();
+    signal?.throwIfAborted();
+    const root = await realpath(path);
+    const target = await realpath(resolve(root, args.file)).catch(error => {
+      if (['ENOENT', 'ENOTDIR', 'ELOOP'].includes(error.code)) throw invalid();
+      throw error;
+    });
+    const location = relative(root, target);
+    if (!location || location === '..' || location.startsWith('..' + sep) || isAbsolute(location) || !(await stat(target)).isFile()) throw invalid();
+    const limit = 256 * 1024;
+    const buffer = Buffer.alloc(limit + 1);
+    const handle = await open(target, 'r');
+    let length = 0;
+    try {
+      while (length < buffer.length) {
+        signal?.throwIfAborted();
+        const { bytesRead } = await handle.read(buffer, length, buffer.length - length, length);
+        if (!bytesRead) break;
+        length += bytesRead;
+      }
+    } finally { await handle.close(); }
+    signal?.throwIfAborted();
+    const truncated = length > limit;
+    let text;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(buffer.subarray(0, Math.min(length, limit))); }
+    catch { return { file: args.file, binary: true, text: '', truncated }; }
+    return text.includes('\0') ? { file: args.file, binary: true, text: '', truncated } : { file: args.file, binary: false, text, truncated };
   }
   async function remove(args) {
     return mutate(async () => {

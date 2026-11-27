@@ -44,9 +44,12 @@ def chinese_message(message):
 
 
 def execute(request):
-    if request.get("action") == "document-preview":
+    action = request.get("action")
+    if action == "document-preview":
         from document_preview import preview_document
         return preview_document(request)
+    if action == "check":
+        return describe(Path(request["path"]))
 
     from skillnet_ai import SkillNetClient
     from skillnet_ai.core.validation import parse_frontmatter, validate_skill
@@ -55,7 +58,6 @@ def execute(request):
     for key, value in request.get("_settings", {}).items():
         if key in ENVIRONMENT and value:
             os.environ[ENVIRONMENT[key]] = value
-    action = request.get("action")
     if action == "status":
         return {"sdk_version": importlib.metadata.version("skillnet-ai")}
     if action == "settings":
@@ -184,8 +186,6 @@ def execute(request):
         with tempfile.TemporaryDirectory(prefix="dsh-skillnet-preview-") as temporary:
             root = Path(download_skill(client, url, temporary))
             return describe(root, url)
-    if action == "check":
-        return describe(Path(request["path"]))
     if action == "file":
         root = Path(request["path"]).resolve()
         relative = request.get("file", "")
@@ -222,14 +222,14 @@ def describe(root, url=None):
     }
 
 
-def respond(line, library_reader=False, route_service=False):
+def respond(line, local_service=False, route_service=False):
     try:
         request = json.loads(line)
         if not isinstance(request, dict):
             raise ValueError("请求参数必须是 JSON 对象。")
-        if library_reader:
-            if request.get('action') != 'local-library':
-                raise ValueError('这个进程仅支持读取技能库。')
+        if local_service and request.get('action') not in ('local-library', 'settings', 'check', 'analysis-plan', 'document-preview'):
+            raise ValueError('这个进程仅支持 SkillNet 本地操作。')
+        if request.get('action') == 'local-library':
             request = {key: request[key] for key in ('action', 'sourcePath', 'indexPath') if key in request}
         if route_service and (request.get('action') != 'route' or not request.get('_host_model')):
             raise ValueError('这个进程仅支持当前 DSH 模型的技能路由。')
@@ -249,11 +249,9 @@ def respond(line, library_reader=False, route_service=False):
 
 
 def main():
-    if '--library-reader' in sys.argv[1:]:
-        for line in sys.stdin:
-            respond(line, library_reader=True)
-        return 0
-    if '--route-service' in sys.argv[1:]:
+    local = '--local-service' in sys.argv[1:]
+    route = '--route-service' in sys.argv[1:]
+    if local or route:
         from skillnet_ai.core.config import ENVIRONMENT
 
         # execute() overlays per-request settings. Restore the process defaults
@@ -261,7 +259,7 @@ def main():
         defaults = {name: os.environ.get(name) for name in ENVIRONMENT.values()}
         while line := sys.stdin.readline():
             try:
-                respond(line, route_service=True)
+                respond(line, local_service=local, route_service=route)
             finally:
                 for name, value in defaults.items():
                     if value is None:

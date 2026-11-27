@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ArrowUpRight, ListChecks, Share2, X } from 'lucide-react'
+import { AlertCircle, ArrowUpRight, Check, History, ListChecks, Loader2, Share2, SlidersHorizontal, Sparkles, X } from 'lucide-react'
+import { DialogHeader } from './DialogHeader'
 import App from './upstream/src/App'
 import type { WorkbenchContext } from './upstream/src/App'
 import { api } from './api'
@@ -72,7 +73,7 @@ function ConversationDraftDialog({ selection, onClose, onUseSkill, onRouteDraft 
   }
   return <dialog className="dsh-use-dialog" ref={dialog} aria-labelledby="dsh-use-heading" onClose={onClose} onCancel={event => { if (pending.current) event.preventDefault() }}>
     <form onSubmit={event => void submit(event)}>
-      <header className="dsh-row"><h2 id="dsh-use-heading">{isRoute ? '添加任务到对话草稿' : '添加技能到对话'}</h2><button type="button" disabled={busy} onClick={() => dialog.current?.close()}>关闭</button></header>
+      <DialogHeader id="dsh-use-heading" title={isRoute ? '添加任务到对话草稿' : '添加技能到对话'} disabled={busy} onClose={() => dialog.current?.close()} />
       <h3 className="dsh-use-skills">{selection.kind === 'route' ? selection.names.join('、') : selection.name}</h3>
       <label className="dsh-destination"><span>目标对话</span><Select aria-label="目标对话" value={sessionId} disabled={loading || busy} onValueChange={id => { setSessionId(id); setBlocked(null); setError('') }}>
         <option value="" disabled>{loading ? '正在读取对话…' : '请选择已打开的对话'}</option>
@@ -97,7 +98,7 @@ function ConversationDraftDialog({ selection, onClose, onUseSkill, onRouteDraft 
         window.dispatchEvent(new CustomEvent('skillnet-preview', { detail: { ...blocked.preview, conversation } }))
         dialog.current?.close()
       }}>预览并安装到个人技能库</button>}
-      <footer className="dsh-row"><button type="submit" disabled={!sessionId || loading || busy}>{busy ? '正在添加…' : isRoute ? '添加到对话草稿' : '添加到对话'}</button></footer>
+      <footer className="dsh-row"><button type="button" disabled={busy} onClick={() => dialog.current?.close()}>取消</button><button type="submit" className="primary-button" disabled={!sessionId || loading || busy}>{busy ? '正在添加…' : isRoute ? '添加到对话草稿' : '添加到对话'}</button></footer>
     </form>
   </dialog>
 }
@@ -124,15 +125,15 @@ function ModelOperationDialog({ context, target, disabled, onClose, onConfirm }:
   }, [target.modelSource, target.sessionId])
   return <dialog className="dsh-use-dialog dsh-graph-dialog dsh-evaluate-dialog" ref={dialog} aria-labelledby="dsh-graph-heading" aria-describedby="dsh-graph-description" onClose={onClose}>
     <div className="dsh-graph-confirm">
-      <h2 id="dsh-graph-heading">确认评估技能</h2>
+      <DialogHeader id="dsh-graph-heading" title="确认评估技能" onClose={() => dialog.current?.close()} />
       <p id="dsh-graph-description">将评估技能 <strong>{context.selectedSkill?.name}</strong> 的安全性、完整性、可执行性、可维护性和成本意识。</p>
       <dl className="dsh-graph-summary">
         <div><dt>使用模型</dt><dd>{model}</dd></div>
       </dl>
       <p className="dsh-graph-note">此操作会调用模型，可能需要一些时间。</p>
       <footer className="dsh-row">
-        <button type="button" autoFocus onClick={onClose}>取消</button>
-        <button type="button" className="dsh-workbench-action dsh-graph-action" disabled={disabled} onClick={() => { if (pending.current) return; pending.current = true; onConfirm() }}>开始评估</button>
+        <button type="button" autoFocus onClick={() => dialog.current?.close()}>取消</button>
+        <button type="button" className="primary-button" disabled={disabled} onClick={() => { if (pending.current) return; pending.current = true; onConfirm() }}>开始评估</button>
       </footer>
     </div>
   </dialog>
@@ -158,22 +159,14 @@ function LibraryTaskDialog({ heading, libraryName, onClose, children, open = tru
     element?.showModal()
     return () => { if (element?.open) element.close() }
   }, [open])
-  function close() {
-    dialog.current?.close()
-    onClose()
-  }
-  return <dialog className="dsh-use-dialog dsh-matching-dialog" ref={dialog} aria-labelledby={headingId} onClose={onClose}
-    onCancel={event => { event.preventDefault(); close() }}>
-    <header className="dsh-row dsh-matching-heading">
-      <h2 id={headingId}>{heading}</h2>
-      <button type="button" aria-label={`关闭${heading}`} onClick={close}><X size={18} aria-hidden="true" /></button>
-    </header>
-    <p>技能库「{libraryName}」</p>
+  return <dialog className="dsh-use-dialog dsh-matching-dialog" ref={dialog} aria-labelledby={headingId}
+    onClose={event => { if (open && !event.currentTarget.open) onClose() }}>
+    <DialogHeader id={headingId} title={heading} subtitle={`技能库「${libraryName}」`} closeLabel={`关闭${heading}`} onClose={() => dialog.current?.close()} />
     {children}
   </dialog>
 }
 
-export function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUseSkill, onRouteDraft }: { logo: string, headerActions: ReactNode, active: boolean, target: ModelTarget, onTarget: (value: ModelTarget) => void, onUseSkill: (selection: SkillDraft) => void, onRouteDraft: (selection: RouteDraft) => void }) {
+export function LibraryWorkbench({ logo, headerActions, active, target, onTarget, onUseSkill, onRouteDraft, onDiscover, onCreate }: { logo: string, headerActions: ReactNode, active: boolean, target: ModelTarget, onTarget: (value: ModelTarget) => void, onUseSkill: (selection: SkillDraft) => void, onRouteDraft: (selection: RouteDraft) => void, onDiscover: () => void, onCreate: () => void }) {
   const [retrievalMode, setRetrievalMode] = useState<'auto' | 'model' | 'vector'>('auto')
   const [latest, setLatest] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<Record<string, boolean>>({})
@@ -182,8 +175,8 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [notices, setNotices] = useState<Record<string, string>>({})
   const [openGraph, setOpenGraph] = useState<string | null>(null)
-  const [graphNotice, setGraphNotice] = useState<{ key: string, text: string } | null>(null)
-  const graphNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const [notice, setNotice] = useState<{ key?: string, text: string, failed: boolean } | null>(null)
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const startedGraphs = useRef(new Set<string>())
   const [modelsOpen, setModelsOpen] = useState(false)
   const [matchingOpen, setMatchingOpen] = useState(false)
@@ -192,12 +185,22 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
   const [useSelection, setUseSelection] = useState<UseSelection | null>(null)
   const [confirmation, setConfirmation] = useState<{ context: WorkbenchContext, action: 'evaluate' } | null>(null)
   const [queries, setQueries] = useState<Record<string, string>>({})
-  const installations = useInstallationManagement(active)
-  useEffect(() => () => clearTimeout(graphNoticeTimer.current), [])
-  function announceGraph(key: string, text: string) {
-    clearTimeout(graphNoticeTimer.current)
-    setGraphNotice({ key, text })
-    graphNoticeTimer.current = setTimeout(() => setGraphNotice(null), 3500)
+  const queryId = useId()
+  const queryInput = useRef<HTMLInputElement>(null)
+  const installations = useInstallationManagement(active, name => announce(`已卸载 ${name}。可在「管理」的「已移除技能」中恢复。`))
+  useEffect(() => () => clearTimeout(noticeTimer.current), [])
+  function clearNotice() {
+    clearTimeout(noticeTimer.current)
+    setNotice(null)
+  }
+  function closeModelPanel(panel: HTMLDetailsElement) {
+    panel.open = false
+    panel.querySelector('summary')?.focus()
+  }
+  function announce(text: string, key?: string, failed = false) {
+    clearTimeout(noticeTimer.current)
+    setNotice({ key, text, failed })
+    noticeTimer.current = setTimeout(() => setNotice(null), 3500)
   }
   async function start(context: WorkbenchContext, action: WorkbenchAction, { retryTaskId, query }: { retryTaskId?: string, query?: string } = {}) {
     if (!context.library || (action === 'route' && !query)) return
@@ -213,7 +216,7 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
         : { sourcePath: context.library.sourcePath, ...(action === 'analyze' ? { retrievalMode, retryTaskId } : { skillId: context.selectedSkill?.id }) }
       const task = await api('start', { ...(action === 'evaluate-batch' ? {} : target), action, ...input })
       if (task.upToDate) {
-        if (action === 'analyze') announceGraph(key, task.message || '图谱已是最新。')
+        if (action === 'analyze') announce(task.message || '图谱已是最新。', key)
         else setNotices(value => ({ ...value, [key]: task.message }))
         return
       }
@@ -222,7 +225,7 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
       setRunning(value => ({ ...value, [key]: true }))
     } catch (e: any) {
       setErrors(value => ({ ...value, [key]: e.message }))
-      if (action === 'analyze') announceGraph(key, '无法启动建图。详情见建图记录。')
+      if (action === 'analyze') announce('无法启动建图。详情见建图记录。', key, true)
     }
     finally { starting.current.delete(key); setBusy(value => ({ ...value, [key]: false })) }
   }
@@ -249,17 +252,18 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
           if (action !== 'analyze') return
           const startedHere = startedGraphs.current.delete(task.id)
           if (!wasRunning && !startedHere) return
-          if (task.status === 'completed') { context.refresh(); announceGraph(key, '图谱已更新。') }
-          else if (task.status === 'killed') announceGraph(key, '建图已取消。')
-          else if (task.status === 'failed') announceGraph(key, '建图失败。详情见建图记录。')
+          if (task.status === 'completed') { context.refresh(); announce('图谱已更新。', key) }
+          else if (task.status === 'killed') announce('建图已取消。', key)
+          else if (task.status === 'failed') announce('建图失败。详情见建图记录。', key, true)
         }} />
     </div>
   }
   return <>
     <App compactControls logoUrl={logo} headerActions={headerActions}
+      emptyLibraryActions={<><button type="button" className="primary-button" onClick={onDiscover}>去发现安装技能</button><button type="button" className="dsh-workbench-action" onClick={onCreate}>创建技能</button></>}
       renderLibraryManagement={(closeMenu, context) => <>
-        {context.library && <button type="button" aria-haspopup="dialog" onClick={() => { closeMenu(); setBatchOpen(true) }}>批量评估</button>}
-        <RemovedInstallations management={installations} onOpen={closeMenu} />
+        {context.library && <button type="button" aria-haspopup="dialog" onClick={() => { closeMenu(); clearNotice(); setBatchOpen(true) }}><ListChecks size={15} strokeWidth={1.8} aria-hidden="true" />批量评估</button>}
+        <RemovedInstallations management={installations} onOpen={() => { closeMenu(); clearNotice() }} />
       </>}
       renderOptions={context => {
         if (!context.library) return null
@@ -270,15 +274,17 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
         const evaluating = busy[batchKey] || running[batchKey]
         const ready = Boolean(context.localData?.source.skills.length)
         return <>
-          <details className="dsh-workbench-tools" onToggle={event => setModelsOpen(event.currentTarget.open)}>
-            <summary>模型</summary><div className="dsh-tools-body">
+          <details className="dsh-workbench-tools" onToggle={event => setModelsOpen(event.currentTarget.open)} onKeyDown={event => {
+            if (event.key === 'Escape' && event.currentTarget.open && !event.defaultPrevented) {
+              event.preventDefault(); event.stopPropagation(); closeModelPanel(event.currentTarget)
+            }
+          }}>
+            <summary><SlidersHorizontal size={15} strokeWidth={1.8} aria-hidden="true" />模型</summary><div className="dsh-tools-body">
               <div className="dsh-tools-model-row">
                 {modelsOpen && <ModelChoice value={target} onChange={onTarget} showRefresh={false} />}
                 <button type="button" className="dsh-workbench-action dsh-tools-close" aria-label="关闭模型设置" title="关闭模型设置" onClick={event => {
                   const panel = event.currentTarget.closest('details')
-                  if (!panel) return
-                  panel.open = false
-                  panel.querySelector('summary')?.focus()
+                  if (panel) closeModelPanel(panel)
                 }}><X size={18} aria-hidden="true" /></button>
               </div>
               <label className="collection-control"><span>建图模式</span><Select aria-label="建图模式" value={retrievalMode} onValueChange={value => setRetrievalMode(value as typeof retrievalMode)}>
@@ -287,11 +293,18 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
               <p>{retrievalMode === 'auto' ? '配置向量模型后使用 SkillNet SDK 建图。' : retrievalMode === 'vector' ? '需要配置向量模型。' : '使用所选 DSH 模型和本地关键词筛选。'}</p>
             </div>
           </details>
-          <button type="button" className="dsh-workbench-action" aria-haspopup="dialog" onClick={() => setMatchingOpen(true)}>任务匹配</button>
+          <button type="button" className="dsh-workbench-action" aria-haspopup="dialog" onClick={() => setMatchingOpen(true)}><Sparkles size={15} strokeWidth={1.8} aria-hidden="true" />任务匹配</button>
           {matchingOpen && active && <LibraryTaskDialog heading="任务匹配" libraryName={context.library.name} onClose={() => setMatchingOpen(false)}>
             <form className="dsh-matchbar" aria-label="任务匹配" onSubmit={event => { event.preventDefault(); if (ready) void start(context, 'route', { query: query.trim() }) }}>
-              <label className="dsh-route-query"><span>任务</span><input autoFocus value={query} disabled={!ready || matching} onChange={event => setQueries(value => ({ ...value, [key]: event.target.value }))} placeholder="描述希望完成的任务" required /></label>
-              <button className="primary-button" type="submit" disabled={!ready || matching || !query.trim()}>{matching ? '匹配中…' : '匹配技能'}</button>
+              <div className="dsh-route-query"><label htmlFor={queryId}>任务</label><div className="dsh-route-input">
+                <input ref={queryInput} id={queryId} autoFocus value={query} disabled={!ready || matching} onChange={event => setQueries(value => ({ ...value, [key]: event.target.value }))} placeholder="描述希望完成的任务" required />
+                {query && !matching && <button type="button" aria-label="清空任务" title="清空任务" onClick={() => {
+                  setQueries(value => ({ ...value, [key]: '' })); queryInput.current?.focus()
+                }}><X size={15} strokeWidth={1.8} aria-hidden="true" /></button>}
+              </div></div>
+              <button className="primary-button" type="submit" disabled={!ready || matching || !query.trim()} aria-busy={matching || undefined}>
+                {matching && <Loader2 size={15} className="dsh-progress-icon" aria-hidden="true" />}{matching ? '匹配中…' : '匹配技能'}
+              </button>
             </form>
             {tasks(context, 'route')}
           </LibraryTaskDialog>}
@@ -302,7 +315,7 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
                   <option value="missing">仅评估本版未覆盖的技能</option><option value="all">重新评估全部技能</option>
                 </Select></label>
                 <ModelChoice value={target} onChange={onTarget} showRefresh={false} />
-                <button type="submit" className="dsh-workbench-action" disabled={evaluating || !ready}>{evaluating ? '评估中…' : '开始批量评估'}</button>
+                <button type="submit" className="primary-button" disabled={evaluating || !ready}>{evaluating ? '评估中…' : '开始批量评估'}</button>
               </fieldset>
             </form>
             {notices[batchKey] && <p role="status">{notices[batchKey]}</p>}
@@ -315,11 +328,11 @@ export function LibraryWorkbench({ logo, headerActions, active, target, onTarget
         const key = jobKey(context, 'analyze')
         return <>
           <GraphAction context={context} busy={!!busy[key]} running={!!running[key]} onStart={() => void start(context, 'analyze')} />
-          <button type="button" className="dsh-workbench-action dsh-graph-history-button" aria-haspopup="dialog" onClick={() => setOpenGraph(key)}>建图记录</button>
+          <button type="button" className="dsh-workbench-action dsh-graph-history-button" aria-haspopup="dialog" onClick={() => setOpenGraph(key)}><History size={15} strokeWidth={1.8} aria-hidden="true" />建图记录</button>
           <LibraryTaskDialog heading="建图记录" libraryName={context.library.name} open={active && openGraph === key} onClose={() => setOpenGraph(null)}>
             {tasks(context, 'analyze')}
           </LibraryTaskDialog>
-          {active && graphNotice?.key === key && <div className="dsh-graph-toast" role="status">{graphNotice.text}</div>}
+          {active && notice && (!notice.key || notice.key === key) && <div className="dsh-workbench-toast" data-failed={notice.failed} role="status">{notice.failed ? <AlertCircle size={16} aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}{notice.text}</div>}
         </>
       }}
       renderSkillActions={context => context.library && context.selectedSkill && <div className="dsh-skill-actions" role="group" aria-label="当前技能操作">

@@ -92,8 +92,9 @@
 .skillnet-shell .compact-workbench .workbench-heading{display:none}
 .skillnet-shell .dsh-taskbar{display:grid;grid-template-columns:minmax(0,1fr) repeat(4,max-content);align-items:center;gap:8px;min-width:0}
 .skillnet-shell .dsh-route-query{display:flex;align-items:center;gap:12px;min-width:0;color:#223744;font-size:14px;font-weight:500}
-.skillnet-shell .dsh-route-query>span{flex:none;white-space:nowrap}
-.skillnet-shell .dsh-route-query>input{flex:1;width:100%;min-width:0;height:44px;margin:0;padding:0 12px;font-size:15px;font-weight:400}
+.skillnet-shell .dsh-route-query>label{flex:none;white-space:nowrap}
+.skillnet-shell .dsh-route-input{position:relative;flex:1;min-width:0}
+.skillnet-shell .dsh-route-input>input{width:100%;min-width:0;height:44px;margin:0;padding:0 12px;font-size:15px;font-weight:400}
 .skillnet-shell .dsh-taskbar>.primary-button{box-sizing:border-box;height:40px;min-height:40px;margin:0;padding:0 18px;justify-content:center;white-space:nowrap}
 .skillnet-shell .dsh-workbench-tools{position:relative}
 .skillnet-shell .dsh-workbench-tools>summary{display:flex;align-items:center;justify-content:center;list-style:none;cursor:pointer;height:40px;padding:0 12px;border:1px solid #dce6e9;border-radius:7px;background:#fff;color:#5b6f7d;font-size:12px;white-space:nowrap}
@@ -118,7 +119,7 @@
 .skillnet-shell .graph-panel-title{height:auto;min-height:72px;flex-wrap:wrap;gap:12px}
 .skillnet-shell .graph-panel-title>.dsh-workbench-action{margin-left:auto}
 .skillnet-shell button.dsh-graph-history-button{min-height:32px;padding:4px 10px;font-size:13px;line-height:22px}
-.skillnet-shell .dsh-graph-toast{position:fixed;z-index:100;bottom:24px;right:24px;max-width:calc(100vw - 48px);padding:8px 12px;border:1px solid #dce6e9;border-radius:8px;background:#fff;color:#355266;box-shadow:0 6px 18px rgba(15,48,62,.16);pointer-events:none}
+.skillnet-shell .dsh-workbench-toast{position:fixed;z-index:100;bottom:24px;right:24px;max-width:calc(100vw - 48px);padding:8px 12px;border:1px solid #dce6e9;border-radius:8px;background:#fff;color:#355266;box-shadow:0 6px 18px rgba(15,48,62,.16);pointer-events:none}
 .skillnet-shell .dsh-graph-history ul{margin:8px 0;padding-inline-start:20px}
 .skillnet-shell .inspector-content h2.skill-detail-name{font-size:24px;font-weight:700;line-height:1.35;letter-spacing:-.01em;margin-bottom:12px}
 .skillnet-shell .skill-detail-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
@@ -155,16 +156,12 @@
 .skillnet-shell .dsh-use-dialog h3.dsh-use-skills{margin:0;font-size:24px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
 .skillnet-shell .dsh-use-dialog footer{justify-content:flex-end}
 .skillnet-shell .dsh-matching-dialog{box-sizing:border-box}
-.skillnet-shell .dsh-matching-heading{justify-content:space-between}
-.skillnet-shell .dsh-matching-dialog .dsh-matching-heading>button{min-width:36px;min-height:36px;padding:0}
 .skillnet-shell .dsh-matching-dialog .dsh-matchbar{margin:12px 0;gap:8px}
-.skillnet-shell .dsh-matching-dialog .dsh-matchbar>button.primary-button{background:#087b61;color:#fff;border-color:#087b61}
 .skillnet-shell .dsh-matching-dialog .dsh-batch-options{display:grid;gap:12px;margin:12px 0;padding:0;border:0}
 .skillnet-shell .dsh-batch-options>button{justify-self:start}
 .skillnet-shell .dsh-evaluation-warning{font-weight:600}
 .skillnet-shell .dsh-new-library-dialog{box-sizing:border-box;width:min(420px,calc(100vw - 32px))}
 .skillnet-shell .dsh-new-library-dialog input{width:100%;min-height:44px;padding:8px 12px;border:1px solid #dce6e9;border-radius:8px;background:#fff;color:inherit;font:inherit}
-.skillnet-shell .dsh-new-library-dialog button.dsh-new-library-submit{background:#087b61;color:#fff;border-color:#087b61}
 .skillnet-shell .dsh-new-library-dialog button:disabled{opacity:.55}
 .skillnet-shell .dsh-package-dialog{width:min(960px,calc(100vw - 48px));max-height:calc(100dvh - 48px);padding:20px;overflow:hidden}
 .skillnet-shell .dsh-package-dialog[open]{display:flex;flex-direction:column;gap:16px}
@@ -177,7 +174,6 @@
 .skillnet-shell .dsh-package-dialog .dsh-package>a{display:inline-block;color:#087b61}
 .skillnet-shell .dsh-package-install{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin:16px 0;padding:12px;border:1px solid #e3ebef;border-radius:8px;background:#f4f8f7}
 .skillnet-shell .dsh-install-target{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-right:auto}
-.skillnet-shell .dsh-use-dialog .dsh-package-install>button.primary-button{background:#087b61;color:#fff;border-color:#087b61}
 .skillnet-shell .dsh-use-dialog .dsh-package-install>button:disabled{opacity:.55}
 .skillnet-shell .dsh-graph-dialog{width:min(420px,calc(100vw - 32px));padding:20px}
 .skillnet-shell .dsh-graph-confirm{display:grid;gap:12px}
@@ -317,7 +313,7 @@
 }
 .skillnet-shell .graph-details-jump { display: none; }
 
-@container skillnet-panel (width >= 1200px) {
+@container skillnet-panel (width >= 1080px) {
   .skillnet-shell:not(.dsh-other-page)>.compact-workbench { display: flex; flex-direction: column; height: 100%; }
   .skillnet-shell .compact-workbench>.site-header { flex: none; }
   .skillnet-shell:not(.dsh-other-page)>.compact-workbench>main { display: flex; flex-direction: column; flex: 1; min-height: 0; width: 100%; margin: 0 auto; padding-bottom: 20px; }
@@ -337,7 +333,15 @@
   .skillnet-shell .compact-workbench .graph-empty { min-height: 280px; }
 }
 
-@container skillnet-panel (width < 1200px) {
+@container skillnet-panel (1080px <= width < 1200px) {
+  .skillnet-shell .compact-workbench .workspace {
+    grid-template-columns: minmax(180px, .7fr) minmax(500px, 1.85fr) minmax(280px, 1.1fr);
+  }
+  .skillnet-shell .compact-workbench .graph-canvas { min-height: calc(500px * 460 / 680); }
+  .skillnet-shell .compact-workbench .graph-canvas .graph-svg { min-width: 500px; }
+}
+
+@container skillnet-panel (width < 1080px) {
   .skillnet-shell .compact-workbench>main,
   .skillnet-shell .compact-workbench .site-header-inner { padding-inline: 20px; }
   .skillnet-shell .compact-workbench .header-link { display: none; }

@@ -71,6 +71,15 @@ test('complete package installs, persists and preserves local edits through remo
   const record = await f.library.install({ previewId: preview.previewId, scope: 'user' });
   assert.equal(record.native.effective, true);
   assert.equal(await readFile(join(record.path, 'scripts/helper.txt'), 'utf8'), 'original helper');
+  assert.deepEqual(await f.library.file({ id: record.id, file: 'scripts/helper.txt' }), { file: 'scripts/helper.txt', text: 'original helper', binary: false, truncated: false });
+  await assert.rejects(f.library.file({ id: record.id, file: '../../outside.txt' }), /技能包内的文件/);
+  const support = join(record.path, 'scripts/helper.txt');
+  await writeFile(support, Buffer.alloc(256 * 1024 + 1, 65));
+  const full = await f.library.file({ id: record.id, file: 'scripts/helper.txt' });
+  assert.equal(full.truncated, true);
+  assert.equal(full.text.length, 256 * 1024);
+  await writeFile(support, Buffer.of(0xFF));
+  assert.equal((await f.library.file({ id: record.id, file: 'scripts/helper.txt' })).binary, true);
   await writeFile(join(record.path, 'scripts/helper.txt'), 'user edit');
   await assert.rejects(f.library.install({ previewId: preview.previewId, scope: 'user' }), /同名/);
   const reopened = createLibrary(f.run, f.skills, { dshHome: f.home });
